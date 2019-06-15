@@ -10,3 +10,6 @@ gwgen
 
 # mac files
 .DS_Store
+
+# mac specific debugging files
+*.dSYM/
