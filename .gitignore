@@ -1,0 +1,9 @@
+# the install directory
+bin/
+
+# Fortran
+*.mod
+*.o
+
+# executable
+gwgen
