@@ -183,7 +183,7 @@ i = 1
 do y = 1,nyrs
   do m = 1,12
   
-    write(so,*)y,m,tmp(1,1,i) - 0.5 * dtr(1,1,i),tmp(1,1,i),tmp(1,1,i) + 0.5 * dtr(1,1,i)
+    write(so,'(2i5,3f7.1)')y,m,tmp(1,1,i) - 0.5 * dtr(1,1,i),tmp(1,1,i),tmp(1,1,i) + 0.5 * dtr(1,1,i)
 
     i = i + 1
 
