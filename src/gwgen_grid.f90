@@ -48,7 +48,9 @@ real(sp) :: scale_factor
 real(sp) :: add_offset
 integer(i2) :: missing_value
 
-integer :: i
+integer :: i,y,m
+integer :: nyrs
+integer :: nmos
 
 !----------------------------------------------------
 
@@ -75,8 +77,9 @@ if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 ncstat = nf90_inquire_dimension(ifid,dimid,len=tlen)
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
+nyrs = tlen / 12
 
-write(so,*)xlen,ylen
+write(so,*)xlen,ylen,nyrs
 
 allocate(lon(xlen))
 allocate(lat(ylen))
@@ -131,16 +134,12 @@ if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 where (var_in /= missing_value) tmp = real(var_in) * scale_factor + add_offset
 
-do i = 1,tlen
-  write(so,*)i,tmp(1,1,i)
-end do
-
 !---------------------------------------------------------------------
 ! get the diurnal temperature range array timeseries
 
 allocate(dtr(cntx,cnty,tlen))
 
-tmp = -9999.
+dtr = -9999.
 
 ncstat = nf90_inq_varid(ifid,"dtr",varid)
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
@@ -159,23 +158,42 @@ if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 where (var_in /= missing_value) dtr = real(var_in) * scale_factor + add_offset
 
-do i = 1,tlen
-  write(so,*)i,tmp(1,1,i)
-end do
+!---------------------------------------------------------------------
+! get the precipitation array timeseries
 
 !---------------------------------------------------------------------
-! get the pre array timeseries
+! get the wet days array timeseries
 
-! ...
+!---------------------------------------------------------------------
+! get the cloud cover array timeseries
 
+!---------------------------------------------------------------------
+! get the wind speed array timeseries
 
-
-
-
-
-
+!---------------------------------------------------------------------
+! close the input file
 
 ncstat = nf90_close(ifid)
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+!---------------------------------------------------------------------
+! data check
+
+i = 1
+do y = 1,nyrs
+  do m = 1,12
+  
+    write(so,*)y,m,tmp(1,1,i) - 0.5 * dtr(1,1,i),tmp(1,1,i),tmp(1,1,i) + 0.5 * dtr(1,1,i)
+
+    i = i + 1
+
+  end do
+end do
+
+!---------------------------------------------------------------------
+
+
+
+
 
 end program gwgen_grid
