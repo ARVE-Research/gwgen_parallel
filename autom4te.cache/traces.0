@@ -1178,7 +1178,7 @@ m4trace:configure.ac:15: -1- m4_pattern_allow([^LIBS$])
 m4trace:configure.ac:15: -1- m4_pattern_allow([^FC$])
 m4trace:configure.ac:15: -1- m4_pattern_allow([^ac_ct_FC$])
 m4trace:configure.ac:17: -1- m4_pattern_allow([^FCFLAGS_f90$])
-m4trace:configure.ac:28: -1- AX_PROG_FC_MPI([test x"$with_mpi" != xno], [use_mpi=yes], [
+m4trace:configure.ac:46: -1- AX_PROG_FC_MPI([test x"$with_mpi" != xno], [use_mpi=yes], [
   use_mpi=no
   if test x"$with_mpi" = xyes; then
     AC_MSG_FAILURE([MPI compiler requested, but couldn't use MPI.])
@@ -1186,37 +1186,37 @@ m4trace:configure.ac:28: -1- AX_PROG_FC_MPI([test x"$with_mpi" != xno], [use_mpi
     AC_MSG_WARN([No MPI compiler found, won't use MPI.])
   fi
 ])
-m4trace:configure.ac:28: -1- _AX_PROG_FC_MPI([test x"$with_mpi" != xno])
-m4trace:configure.ac:28: -1- m4_pattern_allow([^MPIFC$])
-m4trace:configure.ac:28: -1- m4_pattern_allow([^FC$])
-m4trace:configure.ac:28: -1- m4_pattern_allow([^ac_ct_FC$])
-m4trace:configure.ac:28: -1- m4_pattern_allow([^FC$])
-m4trace:configure.ac:28: -1- m4_pattern_allow([^FCFLAGS$])
-m4trace:configure.ac:28: -1- m4_pattern_allow([^LDFLAGS$])
-m4trace:configure.ac:28: -1- m4_pattern_allow([^LIBS$])
-m4trace:configure.ac:28: -1- m4_pattern_allow([^FC$])
-m4trace:configure.ac:28: -1- m4_pattern_allow([^ac_ct_FC$])
-m4trace:configure.ac:37: -1- AX_F90_MODULE([netcdfmod], ["netcdf.mod"], [
+m4trace:configure.ac:46: -1- _AX_PROG_FC_MPI([test x"$with_mpi" != xno])
+m4trace:configure.ac:46: -1- m4_pattern_allow([^MPIFC$])
+m4trace:configure.ac:46: -1- m4_pattern_allow([^FC$])
+m4trace:configure.ac:46: -1- m4_pattern_allow([^ac_ct_FC$])
+m4trace:configure.ac:46: -1- m4_pattern_allow([^FC$])
+m4trace:configure.ac:46: -1- m4_pattern_allow([^FCFLAGS$])
+m4trace:configure.ac:46: -1- m4_pattern_allow([^LDFLAGS$])
+m4trace:configure.ac:46: -1- m4_pattern_allow([^LIBS$])
+m4trace:configure.ac:46: -1- m4_pattern_allow([^FC$])
+m4trace:configure.ac:46: -1- m4_pattern_allow([^ac_ct_FC$])
+m4trace:configure.ac:55: -1- AX_F90_MODULE([netcdfmod], ["netcdf.mod"], [
   use netcdf
   status = nf90_close(ncid)
 ], [/usr/local/include:/sw/include], [$with_netcdfmod], [AC_MSG_ERROR(Can't find netcdf module.)])
-m4trace:configure.ac:37: -1- AX_F90_MODULE_FLAG
-m4trace:configure.ac:37: -1- AX_F90_INTERNAL_HEADMOD([netcdfmod fortran 90 module], ["netcdf.mod"], ["$ax_cv_f90_modflag"], [
+m4trace:configure.ac:55: -1- AX_F90_MODULE_FLAG
+m4trace:configure.ac:55: -1- AX_F90_INTERNAL_HEADMOD([netcdfmod fortran 90 module], ["netcdf.mod"], ["$ax_cv_f90_modflag"], [
   use netcdf
   status = nf90_close(ncid)
 ], [F90_MODULE_netcdfmod], [/usr/local/include:/sw/include], [$with_netcdfmod], [AC_MSG_ERROR(Can't find netcdf module.)])
-m4trace:configure.ac:37: -1- m4_pattern_allow([^F90_MODULE_netcdfmod$])
-m4trace:configure.ac:46: -1- AX_F90_LIBRARY([netcdf], [libnetcdff*], [
+m4trace:configure.ac:55: -1- m4_pattern_allow([^F90_MODULE_netcdfmod$])
+m4trace:configure.ac:64: -1- AX_F90_LIBRARY([netcdf], [libnetcdff*], [
   use netcdf
   status = nf90_close(ncid)
 ], [/usr/local/lib:/sw/lib], [$with_netcdf], [AC_MSG_ERROR(Can't find netcdf library.)])
-m4trace:configure.ac:46: -1- m4_pattern_allow([^F90_LDFLAGS_netcdf$])
-m4trace:configure.ac:46: -1- m4_pattern_allow([^F90_LIBS_netcdf$])
-m4trace:configure.ac:54: -1- m4_pattern_allow([^LIB@&t@OBJS$])
-m4trace:configure.ac:54: -1- m4_pattern_allow([^LTLIBOBJS$])
-m4trace:configure.ac:54: -1- AM_CONDITIONAL([am__EXEEXT], [test -n "$EXEEXT"])
-m4trace:configure.ac:54: -1- m4_pattern_allow([^am__EXEEXT_TRUE$])
-m4trace:configure.ac:54: -1- m4_pattern_allow([^am__EXEEXT_FALSE$])
-m4trace:configure.ac:54: -1- _AM_SUBST_NOTMAKE([am__EXEEXT_TRUE])
-m4trace:configure.ac:54: -1- _AM_SUBST_NOTMAKE([am__EXEEXT_FALSE])
-m4trace:configure.ac:54: -1- _AM_OUTPUT_DEPENDENCY_COMMANDS
+m4trace:configure.ac:64: -1- m4_pattern_allow([^F90_LDFLAGS_netcdf$])
+m4trace:configure.ac:64: -1- m4_pattern_allow([^F90_LIBS_netcdf$])
+m4trace:configure.ac:72: -1- m4_pattern_allow([^LIB@&t@OBJS$])
+m4trace:configure.ac:72: -1- m4_pattern_allow([^LTLIBOBJS$])
+m4trace:configure.ac:72: -1- AM_CONDITIONAL([am__EXEEXT], [test -n "$EXEEXT"])
+m4trace:configure.ac:72: -1- m4_pattern_allow([^am__EXEEXT_TRUE$])
+m4trace:configure.ac:72: -1- m4_pattern_allow([^am__EXEEXT_FALSE$])
+m4trace:configure.ac:72: -1- _AM_SUBST_NOTMAKE([am__EXEEXT_TRUE])
+m4trace:configure.ac:72: -1- _AM_SUBST_NOTMAKE([am__EXEEXT_FALSE])
+m4trace:configure.ac:72: -1- _AM_OUTPUT_DEPENDENCY_COMMANDS

@@ -197,7 +197,8 @@ test -x / || exit 1"
   as_suggested="  as_lineno_1=";as_suggested=$as_suggested$LINENO;as_suggested=$as_suggested" as_lineno_1a=\$LINENO
   as_lineno_2=";as_suggested=$as_suggested$LINENO;as_suggested=$as_suggested" as_lineno_2a=\$LINENO
   eval 'test \"x\$as_lineno_1'\$as_run'\" != \"x\$as_lineno_2'\$as_run'\" &&
-  test \"x\`expr \$as_lineno_1'\$as_run' + 1\`\" = \"x\$as_lineno_2'\$as_run'\"' || exit 1"
+  test \"x\`expr \$as_lineno_1'\$as_run' + 1\`\" = \"x\$as_lineno_2'\$as_run'\"' || exit 1
+test \$(( 1 + 1 )) = 2 || exit 1"
   if (eval "$as_required") 2>/dev/null; then :
   as_have_required=yes
 else
@@ -586,6 +587,42 @@ PACKAGE_URL=''
 
 ac_unique_file="src/"
 ac_default_prefix="`pwd`"
+# Factoring default headers for most tests.
+ac_includes_default="\
+#include <stdio.h>
+#ifdef HAVE_SYS_TYPES_H
+# include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_STAT_H
+# include <sys/stat.h>
+#endif
+#ifdef STDC_HEADERS
+# include <stdlib.h>
+# include <stddef.h>
+#else
+# ifdef HAVE_STDLIB_H
+#  include <stdlib.h>
+# endif
+#endif
+#ifdef HAVE_STRING_H
+# if !defined STDC_HEADERS && defined HAVE_MEMORY_H
+#  include <memory.h>
+# endif
+# include <string.h>
+#endif
+#ifdef HAVE_STRINGS_H
+# include <strings.h>
+#endif
+#ifdef HAVE_INTTYPES_H
+# include <inttypes.h>
+#endif
+#ifdef HAVE_STDINT_H
+# include <stdint.h>
+#endif
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif"
+
 ac_subst_vars='am__EXEEXT_FALSE
 am__EXEEXT_TRUE
 LTLIBOBJS
@@ -594,6 +631,21 @@ F90_LIBS_netcdf
 F90_LDFLAGS_netcdf
 F90_MODULE_netcdfmod
 MPIFC
+DO_UDUNITS2_LIBNAME
+DO_UDUNITS2_LIBDIR
+DO_UDUNITS2_INCDIR
+DO_UDUNITS2_LINE
+UDUNITS2_LIBS
+UDUNITS2_LDFLAGS
+UDUNITS2_CPPFLAGS
+EGREP
+GREP
+NETCDF_CC
+NETCDF_VERSION
+NETCDF_LIBS
+NETCDF_LDFLAGS
+NETCDF_CPPFLAGS
+HAS_NC_CONFIG
 FCFLAGS_f90
 ac_ct_FC
 FCFLAGS
@@ -685,6 +737,9 @@ ac_user_opts='
 enable_option_checking
 enable_silent_rules
 enable_dependency_tracking
+with_nc_config
+with_udunits2_incdir
+with_udunits2_libdir
 with_mpi
 '
       ac_precious_vars='build_alias
@@ -1322,6 +1377,9 @@ Optional Features:
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --with-nc-config=path to nc-config script from netcdf v4 package
+  --with-udunits2_incdir=dir directory containing udunits2 includes
+  --with-udunits2_libdir=dir directory containing udunits2 library
   --with-mpi              compile with MPI (parallelization) support. If none
                           is found, MPI is not used. Default: auto
 
@@ -1493,6 +1551,204 @@ fi
   as_fn_set_status $ac_retval
 
 } @%:@ ac_fn_fc_try_compile
+
+@%:@ ac_fn_fc_try_cpp LINENO
+@%:@ -----------------------
+@%:@ Try to preprocess conftest.@S|@ac_ext, and return whether this succeeded.
+ac_fn_fc_try_cpp ()
+{
+  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
+  if { { ac_try="$ac_cpp conftest.$ac_ext"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:${as_lineno-$LINENO}: $ac_try_echo\""
+$as_echo "$ac_try_echo"; } >&5
+  (eval "$ac_cpp conftest.$ac_ext") 2>conftest.err
+  ac_status=$?
+  if test -s conftest.err; then
+    grep -v '^ *+' conftest.err >conftest.er1
+    cat conftest.er1 >&5
+    mv -f conftest.er1 conftest.err
+  fi
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; } > conftest.i && {
+	 test -z "$ac_fc_preproc_warn_flag$ac_fc_werror_flag" ||
+	 test ! -s conftest.err
+       }; then :
+  ac_retval=0
+else
+  $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+    ac_retval=1
+fi
+  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
+  as_fn_set_status $ac_retval
+
+} @%:@ ac_fn_fc_try_cpp
+
+@%:@ ac_fn_fc_check_header_mongrel LINENO HEADER VAR INCLUDES
+@%:@ --------------------------------------------------------
+@%:@ Tests whether HEADER exists, giving a warning if it cannot be compiled using
+@%:@ the include files in INCLUDES and setting the cache variable VAR
+@%:@ accordingly.
+ac_fn_fc_check_header_mongrel ()
+{
+  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
+  if eval \${$3+:} false; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $2" >&5
+$as_echo_n "checking for $2... " >&6; }
+if eval \${$3+:} false; then :
+  $as_echo_n "(cached) " >&6
+fi
+eval ac_res=\$$3
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+else
+  # Is the header compilable?
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking $2 usability" >&5
+$as_echo_n "checking $2 usability... " >&6; }
+cat > conftest.$ac_ext <<_ACEOF
+$4
+@%:@include <$2>
+_ACEOF
+if ac_fn_fc_try_compile "$LINENO"; then :
+  ac_header_compiler=yes
+else
+  ac_header_compiler=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_header_compiler" >&5
+$as_echo "$ac_header_compiler" >&6; }
+
+# Is the header present?
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking $2 presence" >&5
+$as_echo_n "checking $2 presence... " >&6; }
+cat > conftest.$ac_ext <<_ACEOF
+@%:@include <$2>
+_ACEOF
+if ac_fn_fc_try_cpp "$LINENO"; then :
+  ac_header_preproc=yes
+else
+  ac_header_preproc=no
+fi
+rm -f conftest.err conftest.i conftest.$ac_ext
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_header_preproc" >&5
+$as_echo "$ac_header_preproc" >&6; }
+
+# So?  What about this header?
+case $ac_header_compiler:$ac_header_preproc:$ac_fc_preproc_warn_flag in #((
+  yes:no: )
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: $2: accepted by the compiler, rejected by the preprocessor!" >&5
+$as_echo "$as_me: WARNING: $2: accepted by the compiler, rejected by the preprocessor!" >&2;}
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: $2: proceeding with the compiler's result" >&5
+$as_echo "$as_me: WARNING: $2: proceeding with the compiler's result" >&2;}
+    ;;
+  no:yes:* )
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: $2: present but cannot be compiled" >&5
+$as_echo "$as_me: WARNING: $2: present but cannot be compiled" >&2;}
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: $2:     check for missing prerequisite headers?" >&5
+$as_echo "$as_me: WARNING: $2:     check for missing prerequisite headers?" >&2;}
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: $2: see the Autoconf documentation" >&5
+$as_echo "$as_me: WARNING: $2: see the Autoconf documentation" >&2;}
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: $2:     section \"Present But Cannot Be Compiled\"" >&5
+$as_echo "$as_me: WARNING: $2:     section \"Present But Cannot Be Compiled\"" >&2;}
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: $2: proceeding with the compiler's result" >&5
+$as_echo "$as_me: WARNING: $2: proceeding with the compiler's result" >&2;}
+( $as_echo "## ------------------------------------------- ##
+## Report this to jed.kaplan@arve-research.com ##
+## ------------------------------------------- ##"
+     ) | sed "s/^/$as_me: WARNING:     /" >&2
+    ;;
+esac
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $2" >&5
+$as_echo_n "checking for $2... " >&6; }
+if eval \${$3+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  eval "$3=\$ac_header_compiler"
+fi
+eval ac_res=\$$3
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+fi
+  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
+
+} @%:@ ac_fn_fc_check_header_mongrel
+
+@%:@ ac_fn_fc_try_run LINENO
+@%:@ -----------------------
+@%:@ Try to link conftest.@S|@ac_ext, and return whether this succeeded. Assumes
+@%:@ that executables *can* be run.
+ac_fn_fc_try_run ()
+{
+  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
+  if { { ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:${as_lineno-$LINENO}: $ac_try_echo\""
+$as_echo "$ac_try_echo"; } >&5
+  (eval "$ac_link") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; } && { ac_try='./conftest$ac_exeext'
+  { { case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:${as_lineno-$LINENO}: $ac_try_echo\""
+$as_echo "$ac_try_echo"; } >&5
+  (eval "$ac_try") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; }; then :
+  ac_retval=0
+else
+  $as_echo "$as_me: program exited with status $ac_status" >&5
+       $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+       ac_retval=$ac_status
+fi
+  rm -rf conftest.dSYM conftest_ipa8_conftest.oo
+  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
+  as_fn_set_status $ac_retval
+
+} @%:@ ac_fn_fc_try_run
+
+@%:@ ac_fn_fc_check_header_compile LINENO HEADER VAR INCLUDES
+@%:@ --------------------------------------------------------
+@%:@ Tests whether HEADER exists and can be compiled using the include files in
+@%:@ INCLUDES, setting the cache variable VAR accordingly.
+ac_fn_fc_check_header_compile ()
+{
+  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $2" >&5
+$as_echo_n "checking for $2... " >&6; }
+if eval \${$3+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  cat > conftest.$ac_ext <<_ACEOF
+$4
+@%:@include <$2>
+_ACEOF
+if ac_fn_fc_try_compile "$LINENO"; then :
+  eval "$3=yes"
+else
+  eval "$3=no"
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+eval ac_res=\$$3
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
+
+} @%:@ ac_fn_fc_check_header_compile
 
 @%:@ ac_fn_fc_try_link LINENO
 @%:@ ------------------------
@@ -3822,7 +4078,100 @@ ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 
 
 # Handle netcdf
-AC_PATH_NETCDF
+
+
+@%:@ Check whether --with-nc_config was given.
+if test "${with_nc_config+set}" = set; then :
+  withval=$with_nc_config; NC_CONFIG=$withval
+fi
+
+err=0
+if test x$NC_CONFIG = x; then
+	NC_CONFIG_SHORT=nc-config
+	NC_CONFIG_FULLQUAL=nc-config
+	NC_CONFIG_PATH=$PATH
+else
+	echo "user specified nc-config is $NC_CONFIG"
+	NC_CONFIG_SHORT=`basename $NC_CONFIG`
+	NC_CONFIG_FULLQUAL=$NC_CONFIG
+	NC_CONFIG_PATH=`dirname $NC_CONFIG`
+fi
+# Extract the first word of "$NC_CONFIG_SHORT", so it can be a program name with args.
+set dummy $NC_CONFIG_SHORT; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_prog_HAS_NC_CONFIG+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$HAS_NC_CONFIG"; then
+  ac_cv_prog_HAS_NC_CONFIG="$HAS_NC_CONFIG" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $NC_CONFIG_PATH 
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_prog_HAS_NC_CONFIG="yes"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_prog_HAS_NC_CONFIG" && ac_cv_prog_HAS_NC_CONFIG="no"
+fi
+fi
+HAS_NC_CONFIG=$ac_cv_prog_HAS_NC_CONFIG
+if test -n "$HAS_NC_CONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAS_NC_CONFIG" >&5
+$as_echo "$HAS_NC_CONFIG" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+if test x$HAS_NC_CONFIG = xno; then
+	echo "-----------------------------------------------------------------------------------"
+	echo "Error, nc-config not found or not executable.  This is a script that comes with the"
+	echo "netcdf library, version 4.1-beta2 or later, and must be present for configuration"
+	echo "to succeed."
+	echo " "
+	echo "If you installed the netcdf library (and nc-config) in a standard location, nc-config"
+	echo "should be found automatically.  Otherwise, you can specify the full path and name of"
+	echo "the nc-config script by passing the --with-nc-config=/full/path/nc-config argument"
+	echo "flag to the configure script.  For example:"
+	echo " "
+	echo "./configure --with-nc-config=/sw/dist/netcdf4/nc-config"
+	echo "-----------------------------------------------------------------------------------"
+	exit -1
+fi
+NETCDF_CC=`$NC_CONFIG_FULLQUAL --cc`
+NETCDF_FC=`$NC_CONFIG_FULLQUAL --fc`
+NETCDF_LDFLAGS=`$NC_CONFIG_FULLQUAL --libs`
+NETCDF_CPPFLAGS=`$NC_CONFIG_FULLQUAL --cflags`
+NETCDF_VERSION=`$NC_CONFIG_FULLQUAL --version`
+NETCDF_V4=`$NC_CONFIG_FULLQUAL --has-nc4`
+
+$as_echo "@%:@define HAVE_NETCDF 1" >>confdefs.h
+
+if test x$NETCDF_V4 = xyes; then
+	
+$as_echo "@%:@define HAVE_NETCDF4 1" >>confdefs.h
+
+fi
+echo "Netcdf library version: $NETCDF_VERSION"
+echo "Netcdf library has version 4 interface present: $NETCDF_V4"
+echo "Netcdf library was compiled with C compiler: $NETCDF_CC"
+
+
+
+
+
+
 
 # For ncview-2.0, I've chosen to REQUIRE the netcdf V4 interface.
 if test $NETCDF_V4 = "no"; then
@@ -3835,6 +4184,626 @@ if test $NETCDF_V4 = "no"; then
 	exit -1
 fi
 
+# Handle udunits2
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for grep that handles long lines and -e" >&5
+$as_echo_n "checking for grep that handles long lines and -e... " >&6; }
+if ${ac_cv_path_GREP+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -z "$GREP"; then
+  ac_path_GREP_found=false
+  # Loop through the user's path and test for each of PROGNAME-LIST
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH$PATH_SEPARATOR/usr/xpg4/bin
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_prog in grep ggrep; do
+    for ac_exec_ext in '' $ac_executable_extensions; do
+      ac_path_GREP="$as_dir/$ac_prog$ac_exec_ext"
+      as_fn_executable_p "$ac_path_GREP" || continue
+# Check for GNU ac_path_GREP and select it if it is found.
+  # Check for GNU $ac_path_GREP
+case `"$ac_path_GREP" --version 2>&1` in
+*GNU*)
+  ac_cv_path_GREP="$ac_path_GREP" ac_path_GREP_found=:;;
+*)
+  ac_count=0
+  $as_echo_n 0123456789 >"conftest.in"
+  while :
+  do
+    cat "conftest.in" "conftest.in" >"conftest.tmp"
+    mv "conftest.tmp" "conftest.in"
+    cp "conftest.in" "conftest.nl"
+    $as_echo 'GREP' >> "conftest.nl"
+    "$ac_path_GREP" -e 'GREP$' -e '-(cannot match)-' < "conftest.nl" >"conftest.out" 2>/dev/null || break
+    diff "conftest.out" "conftest.nl" >/dev/null 2>&1 || break
+    as_fn_arith $ac_count + 1 && ac_count=$as_val
+    if test $ac_count -gt ${ac_path_GREP_max-0}; then
+      # Best one so far, save it but keep looking for a better one
+      ac_cv_path_GREP="$ac_path_GREP"
+      ac_path_GREP_max=$ac_count
+    fi
+    # 10*(2^10) chars as input seems more than enough
+    test $ac_count -gt 10 && break
+  done
+  rm -f conftest.in conftest.tmp conftest.nl conftest.out;;
+esac
+
+      $ac_path_GREP_found && break 3
+    done
+  done
+  done
+IFS=$as_save_IFS
+  if test -z "$ac_cv_path_GREP"; then
+    as_fn_error $? "no acceptable grep could be found in $PATH$PATH_SEPARATOR/usr/xpg4/bin" "$LINENO" 5
+  fi
+else
+  ac_cv_path_GREP=$GREP
+fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_path_GREP" >&5
+$as_echo "$ac_cv_path_GREP" >&6; }
+ GREP="$ac_cv_path_GREP"
+ 
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for egrep" >&5
+$as_echo_n "checking for egrep... " >&6; }
+if ${ac_cv_path_EGREP+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if echo a | $GREP -E '(a|b)' >/dev/null 2>&1
+   then ac_cv_path_EGREP="$GREP -E"
+   else
+     if test -z "$EGREP"; then
+  ac_path_EGREP_found=false
+  # Loop through the user's path and test for each of PROGNAME-LIST
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH$PATH_SEPARATOR/usr/xpg4/bin
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_prog in egrep; do
+    for ac_exec_ext in '' $ac_executable_extensions; do
+      ac_path_EGREP="$as_dir/$ac_prog$ac_exec_ext"
+      as_fn_executable_p "$ac_path_EGREP" || continue
+# Check for GNU ac_path_EGREP and select it if it is found.
+  # Check for GNU $ac_path_EGREP
+case `"$ac_path_EGREP" --version 2>&1` in
+*GNU*)
+  ac_cv_path_EGREP="$ac_path_EGREP" ac_path_EGREP_found=:;;
+*)
+  ac_count=0
+  $as_echo_n 0123456789 >"conftest.in"
+  while :
+  do
+    cat "conftest.in" "conftest.in" >"conftest.tmp"
+    mv "conftest.tmp" "conftest.in"
+    cp "conftest.in" "conftest.nl"
+    $as_echo 'EGREP' >> "conftest.nl"
+    "$ac_path_EGREP" 'EGREP$' < "conftest.nl" >"conftest.out" 2>/dev/null || break
+    diff "conftest.out" "conftest.nl" >/dev/null 2>&1 || break
+    as_fn_arith $ac_count + 1 && ac_count=$as_val
+    if test $ac_count -gt ${ac_path_EGREP_max-0}; then
+      # Best one so far, save it but keep looking for a better one
+      ac_cv_path_EGREP="$ac_path_EGREP"
+      ac_path_EGREP_max=$ac_count
+    fi
+    # 10*(2^10) chars as input seems more than enough
+    test $ac_count -gt 10 && break
+  done
+  rm -f conftest.in conftest.tmp conftest.nl conftest.out;;
+esac
+
+      $ac_path_EGREP_found && break 3
+    done
+  done
+  done
+IFS=$as_save_IFS
+  if test -z "$ac_cv_path_EGREP"; then
+    as_fn_error $? "no acceptable egrep could be found in $PATH$PATH_SEPARATOR/usr/xpg4/bin" "$LINENO" 5
+  fi
+else
+  ac_cv_path_EGREP=$EGREP
+fi
+
+   fi
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_path_EGREP" >&5
+$as_echo "$ac_cv_path_EGREP" >&6; }
+ EGREP="$ac_cv_path_EGREP"
+ 
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for ANSI C header files" >&5
+$as_echo_n "checking for ANSI C header files... " >&6; }
+if ${ac_cv_header_stdc+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      end
+_ACEOF
+if ac_fn_fc_try_compile "$LINENO"; then :
+  ac_cv_header_stdc=yes
+else
+  ac_cv_header_stdc=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+
+if test $ac_cv_header_stdc = yes; then
+  # SunOS 4.x string.h does not declare mem*, contrary to ANSI.
+  cat > conftest.$ac_ext <<_ACEOF
+#include <string.h>
+
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "memchr" >/dev/null 2>&1; then :
+  
+else
+  ac_cv_header_stdc=no
+fi
+rm -f conftest*
+
+fi
+
+if test $ac_cv_header_stdc = yes; then
+  # ISC 2.0.2 stdlib.h does not declare free, contrary to ANSI.
+  cat > conftest.$ac_ext <<_ACEOF
+#include <stdlib.h>
+
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "free" >/dev/null 2>&1; then :
+  
+else
+  ac_cv_header_stdc=no
+fi
+rm -f conftest*
+
+fi
+
+if test $ac_cv_header_stdc = yes; then
+  # /bin/cc in Irix-4.0.5 gets non-ANSI ctype macros unless using -ansi.
+  if test "$cross_compiling" = yes; then :
+  :
+else
+  cat > conftest.$ac_ext <<_ACEOF
+#include <ctype.h>
+#include <stdlib.h>
+#if ((' ' & 0x0FF) == 0x020)
+# define ISLOWER(c) ('a' <= (c) && (c) <= 'z')
+# define TOUPPER(c) (ISLOWER(c) ? 'A' + ((c) - 'a') : (c))
+#else
+# define ISLOWER(c) \
+		   (('a' <= (c) && (c) <= 'i') \
+		     || ('j' <= (c) && (c) <= 'r') \
+		     || ('s' <= (c) && (c) <= 'z'))
+# define TOUPPER(c) (ISLOWER(c) ? ((c) | 0x40) : (c))
+#endif
+
+#define XOR(e, f) (((e) && !(f)) || (!(e) && (f)))
+int
+main ()
+{
+  int i;
+  for (i = 0; i < 256; i++)
+    if (XOR (islower (i), ISLOWER (i))
+	|| toupper (i) != TOUPPER (i))
+      return 2;
+  return 0;
+}
+_ACEOF
+if ac_fn_fc_try_run "$LINENO"; then :
+  
+else
+  ac_cv_header_stdc=no
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+fi
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_header_stdc" >&5
+$as_echo "$ac_cv_header_stdc" >&6; }
+if test $ac_cv_header_stdc = yes; then
+  
+$as_echo "@%:@define STDC_HEADERS 1" >>confdefs.h
+
+fi
+
+# On IRIX 5.3, sys/types and inttypes.h are conflicting.
+for ac_header in sys/types.h sys/stat.h stdlib.h string.h memory.h strings.h \
+		  inttypes.h stdint.h unistd.h
+do :
+  as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
+ac_fn_fc_check_header_compile "$LINENO" "$ac_header" "$as_ac_Header" "$ac_includes_default
+"
+if eval test \"x\$"$as_ac_Header"\" = x"yes"; then :
+  cat >>confdefs.h <<_ACEOF
+@%:@define `$as_echo "HAVE_$ac_header" | $as_tr_cpp` 1
+_ACEOF
+ 
+fi
+
+done
+
+
+
+
+@%:@ Check whether --with-udunits2_incdir was given.
+if test "${with_udunits2_incdir+set}" = set; then :
+  withval=$with_udunits2_incdir; UDUNITS2_INCDIR=$withval
+fi
+
+err=0
+if test x$UDUNITS2_INCDIR != x; then
+        as_ac_Header=`$as_echo "ac_cv_header_$UDUNITS2_INCDIR/converter.h" | $as_tr_sh`
+ac_fn_fc_check_header_mongrel "$LINENO" "$UDUNITS2_INCDIR/converter.h" "$as_ac_Header" "$ac_includes_default"
+if eval test \"x\$"$as_ac_Header"\" = x"yes"; then :
+  echo "Using user-specified udunits2 include dir=$UDUNITS2_INCDIR"
+else
+  err=1 
+fi
+
+
+	if test $err -eq 1; then
+		echo "--------------------------------------------------------------------------------"
+		echo "Error: You specified that the udunits-2 include directory is $UDUNITS2_INCDIR"
+		echo "but that directory does NOT have required udunits-2 include file converter.h."
+		echo "You must specify a directory that has ALL the udunits-2 include files"
+		echo "(converter.h as well as udunits2.h)."
+		echo "--------------------------------------------------------------------------------"
+		exit -1
+	fi
+        as_ac_Header=`$as_echo "ac_cv_header_$UDUNITS2_INCDIR/udunits2.h" | $as_tr_sh`
+ac_fn_fc_check_header_mongrel "$LINENO" "$UDUNITS2_INCDIR/udunits2.h" "$as_ac_Header" "$ac_includes_default"
+if eval test \"x\$"$as_ac_Header"\" = x"yes"; then :
+  echo "Using user-specified udunits2 include dir=$UDUNITS2_INCDIR"
+else
+  err=1 
+fi
+
+
+fi
+if test $err -eq 1; then
+        echo "Error: user specified udunits2 include directory does not have udunits2.h!"
+        exit -1
+fi
+if test x$UDUNITS2_INCDIR = x; then
+        ac_fn_fc_check_header_mongrel "$LINENO" "udunits2.h" "ac_cv_header_udunits2_h" "$ac_includes_default"
+if test "x$ac_cv_header_udunits2_h" = xyes; then :
+  UDUNITS2_INCDIR=. 
+fi
+
+
+fi
+if test x$UDUNITS2_INCDIR = x; then
+        ac_fn_fc_check_header_mongrel "$LINENO" "/usr/local/include/udunits2.h" "ac_cv_header__usr_local_include_udunits2_h" "$ac_includes_default"
+if test "x$ac_cv_header__usr_local_include_udunits2_h" = xyes; then :
+  UDUNITS2_INCDIR=/usr/local/include 
+fi
+
+
+fi
+if test x$UDUNITS2_INCDIR = x; then
+        ac_fn_fc_check_header_mongrel "$LINENO" "/usr/include/udunits2.h" "ac_cv_header__usr_include_udunits2_h" "$ac_includes_default"
+if test "x$ac_cv_header__usr_include_udunits2_h" = xyes; then :
+  UDUNITS2_INCDIR=/usr/include 
+fi
+
+
+fi
+if test x$UDUNITS2_INCDIR = x; then
+        as_ac_Header=`$as_echo "ac_cv_header_$HOME/include/udunits2.h" | $as_tr_sh`
+ac_fn_fc_check_header_mongrel "$LINENO" "$HOME/include/udunits2.h" "$as_ac_Header" "$ac_includes_default"
+if eval test \"x\$"$as_ac_Header"\" = x"yes"; then :
+  UDUNITS2_INCDIR=$HOME/include 
+fi
+
+
+fi
+if test x$UDUNITS2_INCDIR = x; then
+        ac_fn_fc_check_header_mongrel "$LINENO" "/sw/include/udunits2.h" "ac_cv_header__sw_include_udunits2_h" "$ac_includes_default"
+if test "x$ac_cv_header__sw_include_udunits2_h" = xyes; then :
+  UDUNITS2_INCDIR=/sw/include 
+fi
+
+
+fi
+UDUNITS2_INC_PRESENT=no
+if test x$UDUNITS2_INCDIR != x; then
+	UDUNITS2_INC_PRESENT=yes
+        UDUNITS2_CPPFLAGS=-I$UDUNITS2_INCDIR
+else
+	echo "** Could not find the udunits2.h file, udunits support will not be included **"
+fi
+UDUNITS2_LIBNAME=libudunits2.a
+
+@%:@ Check whether --with-udunits2_libdir was given.
+if test "${with_udunits2_libdir+set}" = set; then :
+  withval=$with_udunits2_libdir; UDUNITS2_LIBDIR=$withval
+fi
+
+err=0
+if test x$UDUNITS2_LIBDIR != x; then
+        as_ac_File=`$as_echo "ac_cv_file_$UDUNITS2_LIBDIR/$UDUNITS2_LIBNAME" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $UDUNITS2_LIBDIR/$UDUNITS2_LIBNAME" >&5
+$as_echo_n "checking for $UDUNITS2_LIBDIR/$UDUNITS2_LIBNAME... " >&6; }
+if eval \${$as_ac_File+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "$UDUNITS2_LIBDIR/$UDUNITS2_LIBNAME"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+  echo "Using user-specified udunits2 library dir=$UDUNITS2_LIBDIR"
+else
+  err=1 
+fi
+
+fi
+if test $err -eq 1; then
+        echo "Error: user specified udunits2 library directory does not have $UDUNITS2_LIBNAME !"
+        exit -1
+fi
+if test x$NETCDF_LIBDIR = x; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for ut_read_xml in -ludunits2" >&5
+$as_echo_n "checking for ut_read_xml in -ludunits2... " >&6; }
+if ${ac_cv_lib_udunits2_ut_read_xml+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-ludunits2  $LIBS"
+cat > conftest.$ac_ext <<_ACEOF
+      program main
+      call ut_read_xml
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  ac_cv_lib_udunits2_ut_read_xml=yes
+else
+  ac_cv_lib_udunits2_ut_read_xml=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_udunits2_ut_read_xml" >&5
+$as_echo "$ac_cv_lib_udunits2_ut_read_xml" >&6; }
+if test "x$ac_cv_lib_udunits2_ut_read_xml" = xyes; then :
+  UDUNITS2_LIBDIR=. 
+fi
+
+fi
+if test x$UDUNITS2_LIBDIR = x; then
+        as_ac_File=`$as_echo "ac_cv_file_/usr/local/lib/$UDUNITS2_LIBNAME" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for /usr/local/lib/$UDUNITS2_LIBNAME" >&5
+$as_echo_n "checking for /usr/local/lib/$UDUNITS2_LIBNAME... " >&6; }
+if eval \${$as_ac_File+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "/usr/local/lib/$UDUNITS2_LIBNAME"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+  UDUNITS2_LIBDIR=/usr/local/lib 
+fi
+
+fi
+if test x$UDUNITS2_LIBDIR = x; then
+        as_ac_File=`$as_echo "ac_cv_file_/usr/lib/$UDUNITS2_LIBNAME" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for /usr/lib/$UDUNITS2_LIBNAME" >&5
+$as_echo_n "checking for /usr/lib/$UDUNITS2_LIBNAME... " >&6; }
+if eval \${$as_ac_File+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "/usr/lib/$UDUNITS2_LIBNAME"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+  UDUNITS2_LIBDIR=/usr/lib 
+fi
+
+fi
+if test x$UDUNITS2_LIBDIR = x; then
+        as_ac_File=`$as_echo "ac_cv_file_/lib/$UDUNITS2_LIBNAME" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for /lib/$UDUNITS2_LIBNAME" >&5
+$as_echo_n "checking for /lib/$UDUNITS2_LIBNAME... " >&6; }
+if eval \${$as_ac_File+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "/lib/$UDUNITS2_LIBNAME"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+  UDUNITS2_LIBDIR=/lib 
+fi
+
+fi
+if test x$UDUNITS2_LIBDIR = x; then
+        as_ac_File=`$as_echo "ac_cv_file_$HOME/lib/$UDUNITS2_LIBNAME" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $HOME/lib/$UDUNITS2_LIBNAME" >&5
+$as_echo_n "checking for $HOME/lib/$UDUNITS2_LIBNAME... " >&6; }
+if eval \${$as_ac_File+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "$HOME/lib/$UDUNITS2_LIBNAME"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+  UDUNITS2_LIBDIR=$HOME/lib 
+fi
+
+fi
+if test x$UDUNITS2_LIBDIR = x; then
+        as_ac_File=`$as_echo "ac_cv_file_/sw/lib/$UDUNITS2_LIBNAME" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for /sw/lib/$UDUNITS2_LIBNAME" >&5
+$as_echo_n "checking for /sw/lib/$UDUNITS2_LIBNAME... " >&6; }
+if eval \${$as_ac_File+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "/sw/lib/$UDUNITS2_LIBNAME"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+  UDUNITS2_LIBDIR=/sw/lib 
+fi
+
+fi
+UDUNITS2_LIBNAME=`echo $UDUNITS2_LIBNAME | sed s/lib// | sed s/\.a//`
+UDUNITS2_PRESENT=no
+if test $UDUNITS2_INC_PRESENT = yes; then
+	if test x$UDUNITS2_LIBDIR != x; then
+		UDUNITS2_PRESENT=yes
+		UDUNITS2_LIBS=-l$UDUNITS2_LIBNAME
+		UDUNITS2_LDFLAGS="-L$UDUNITS2_LIBDIR $UDUNITS2_LIBS"
+		
+$as_echo "@%:@define HAVE_UDUNITS2 1" >>confdefs.h
+
+	fi
+fi
+if test $UDUNITS2_PRESENT = yes; then
+	haveExpat=yes
+	LIBSsave=$LIBS
+	CFLAGSsave=$CFLAGS
+	LIBS=$UDUNITS2_LDFLAGS
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for expat library (required by udunits2)" >&5
+$as_echo_n "checking for expat library (required by udunits2)... " >&6; }
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: " >&5
+$as_echo "" >&6; }
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for XML_GetBase in -lexpat" >&5
+$as_echo_n "checking for XML_GetBase in -lexpat... " >&6; }
+if ${ac_cv_lib_expat_XML_GetBase+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lexpat  $LIBS"
+cat > conftest.$ac_ext <<_ACEOF
+      program main
+      call XML_GetBase
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  ac_cv_lib_expat_XML_GetBase=yes
+else
+  ac_cv_lib_expat_XML_GetBase=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_expat_XML_GetBase" >&5
+$as_echo "$ac_cv_lib_expat_XML_GetBase" >&6; }
+if test "x$ac_cv_lib_expat_XML_GetBase" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+@%:@define HAVE_LIBEXPAT 1
+_ACEOF
+
+  LIBS="-lexpat $LIBS"
+
+else
+  haveExpat=no
+fi
+
+	if test x"$haveExpat"x != "xyesx"; then
+	  as_fn_error $? "Could not find the expat library despite the fact that the udunits2 library is installed.  This probably means some sort of configuration file error. Please consult with the package maintainer." "$LINENO" 5
+	  exit -1
+	fi
+	EXPAT_LIBS=$LIBS
+	echo "Expat libraries (needed by udunits2): $EXPAT_LIBS"
+	UDUNITS2_LDFLAGS="$UDUNITS2_LDFLAGS $LIBS"
+	LIBS=$LIBSsave
+	CFLAGS=$CFLAGSsave
+fi
+
+
+
+
+
+do_udunits2=false
+if test x$UDUNITS2_INCDIR != x; then
+	if test x$UDUNITS2_LIBDIR != x; then
+		do_udunits2=true
+	fi
+fi
+if test $do_udunits2 = true; then
+	echo "****************************************************************************"
+	echo "Udunits library version 2 support enabled.   "
+	echo "udunits2 dirs: include: $UDUNITS2_INCDIR  library: $UDUNITS2_LIBDIR  libname: $UDUNITS2_LIBNAME"
+	echo "****************************************************************************"
+	DO_UDUNITS2_LINE="INC_UDUNITS2   = -DINC_UDUNITS2"
+	DO_UDUNITS2_INCDIR="UDUNITS2INCDIR = -I$UDUNITS2_INCDIR"
+	DO_UDUNITS2_LIBDIR="UDUNITS2LIBDIR = -L$UDUNITS2_LIBDIR"
+	DO_UDUNITS2_LIBNAME="UDUNITS2LIB = -l$UDUNITS2_LIBNAME"
+else
+	echo "************************************************************************"
+	echo "Note: udunits2 support is NOT enabled, because I could not find the "
+	echo "location of the udunits2 include file 'udunits2.h' or library file"
+	echo "'libudunits2.a'.  Ncview uses the udunits2 package to format date strings"
+	echo "with units of the form 'days since 1900-01-01'.  If you do not use"
+	echo "these udunits2-standard date formats, then don't worry about the lack"
+	echo "of udunits2 support.  If you DO use udunits2 format date strings, and"
+	echo "you want the udunits2 support, then you must tell me where to find"
+	echo "the udunits2 package by giving arguments to configure, as follows:"
+	echo "  ./configure -with-udunits2_incdir=include_directory -with-udunits2_libdir=library_directory"
+	echo "************************************************************************"
+	DO_UDUNITS2_LINE="#INC_UDUNITS2   = -DINC_UDUNITS2"
+	DO_UDUNITS2_INCDIR="#UDUNITS2INCDIR = -I$UDUNITS2_INCDIR"
+	DO_UDUNITS2_LIBDIR="#UDUNITS2LIBDIR = -I$UDUNITS2_LIBDIR"
+	DO_UDUNITS2_LIBNAME="#UDUNITS2LIB = -l$UDUNITS2_LIBNAME"
+fi
 
 
 

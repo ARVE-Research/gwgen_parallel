@@ -1,7 +1,6 @@
 program gwgen_grid
 
-! compilation string - should use a Makefile instead
-! gfortran -o gwgen parametersmod.f90 errormod.f90 coordsmod.f90 gwgen_grid.f90 -I/usr/local/include -L/usr/local/lib -lnetcdf -lnetcdff
+! use the Makefile to compile this program
 
 ! program to run gwgen with gridded input, provide the name of a climate data input file and geographic bounds for the simulation using a xmin/xmax/ymin/ymax string
 ! JO Kaplan, HKU, 2019
@@ -38,7 +37,12 @@ integer :: cnty
 
 integer(i2), allocatable, dimension(:,:,:) :: var_in  ! temporary array for input data in i2 format
 
-real(sp), allocatable, dimension(:,:,:) :: tmp  ! temperature array
+real(sp), allocatable, dimension(:,:,:) :: tmp  ! mean monthly temperature (degC)
+real(sp), allocatable, dimension(:,:,:) :: dtr  ! mean monthly diurnal temperature range (degC)
+real(sp), allocatable, dimension(:,:,:) :: pre  ! total monthly precipitation (mm)
+real(sp), allocatable, dimension(:,:,:) :: wet  ! number of days in the month with precipitation > 0.1 mm (days)
+real(sp), allocatable, dimension(:,:,:) :: cld  ! mean monthly cloud cover (percent)
+real(sp), allocatable, dimension(:,:,:) :: wnd  ! mean monthly 10m windspeed (m s-1)
 
 real(sp) :: scale_factor
 real(sp) :: add_offset
@@ -132,7 +136,32 @@ do i = 1,tlen
 end do
 
 !---------------------------------------------------------------------
-! get the dtr array timeseries
+! get the diurnal temperature range array timeseries
+
+allocate(dtr(cntx,cnty,tlen))
+
+tmp = -9999.
+
+ncstat = nf90_inq_varid(ifid,"dtr",varid)
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,1],count=[cntx,cnty,tlen])
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_get_att(ifid,varid,"missing_value",missing_value)
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_get_att(ifid,varid,"scale_factor",scale_factor)
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_get_att(ifid,varid,"add_offset",add_offset)
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+where (var_in /= missing_value) dtr = real(var_in) * scale_factor + add_offset
+
+do i = 1,tlen
+  write(so,*)i,tmp(1,1,i)
+end do
 
 !---------------------------------------------------------------------
 ! get the pre array timeseries
