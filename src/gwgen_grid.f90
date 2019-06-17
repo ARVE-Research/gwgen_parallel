@@ -52,6 +52,7 @@ integer :: i,y,m
 integer :: nyrs												! Number of years (tlen/12)
 integer :: nmos
 
+
 !----------------------------------------------------
 ! Read dimension IDs and lengths of dimensions
 
@@ -82,6 +83,7 @@ nyrs = tlen / 12											! Number of years = months / 12
 
 write(so,*)xlen,ylen,nyrs
 
+
 !----------------------------------------------------
 ! Read variable IDs and values 
 
@@ -100,6 +102,7 @@ if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 ncstat = nf90_get_var(ifid,varid,lat)						! Get variable values for latitude
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
+
 !----------------------------------------------------
 ! In terminal, call the programs coordstring and parsecoords to determine boundaries of area of interest (translates lat/long values into indices of the lat/long arrays)
 
@@ -111,11 +114,12 @@ write(so,*)bounds											! Print boundaries of area of interest
 
 call calcpixels(lon,lat,bounds,xpos,ypos,srtx,srty,cntx,cnty)
 
-write(so,*)xpos												! Print start position of longitude
-write(so,*)ypos												! Print start position of latitude
-write(so,*)cntx,cnty										! Print counts of x and y cells	
+write(so,*)'xpos: ',xpos									! Print start position of longitude
+write(so,*)'ypos: ',ypos									! Print start position of latitude
+write(so,*)'cntx, cnty: ',cntx,cnty							! Print counts of x and y cells	
 
 allocate(var_in(cntx,cnty,tlen))							! Allocate space in input array 'var_in' (x-range, y-range and temporal range)
+
 
 !---------------------------------------------------------------------
 ! get the temperature array timeseries
@@ -141,6 +145,7 @@ if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 where (var_in /= missing_value) tmp = real(var_in) * scale_factor + add_offset			! Where the temperature attribute is not missing value, calculate the real temperature using the scale factor and the add_offset
 
+
 !---------------------------------------------------------------------
 ! get the diurnal temperature range array timeseries
 
@@ -165,11 +170,30 @@ if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 where (var_in /= missing_value) dtr = real(var_in) * scale_factor + add_offset			! Where dtr is not missing value, calculate real values using add_offset and scale_factor
 
+
 !---------------------------------------------------------------------
 ! get the precipitation array timeseries
 
+allocate(pre(cntx,cnty,tlen))															! Allocate space to array pre (precipitation) 
 
+pre = -9999.																			! Set pre to -9999								
 
+ncstat = nf90_inq_varid(ifid,"pre",varid)												! Get variable ID of variable pre
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,1],count=[cntx,cnty,tlen])		! Get values for variable pre from input file, based on area and time scale of interest
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_get_att(ifid,varid,"missing_value",missing_value)							! Get attribute 'missing_value'
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_get_att(ifid,varid,"scale_factor",scale_factor)							! Get attribute 'scale_factor'
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_get_att(ifid,varid,"add_offset",add_offset)								! Get attribute 'add_offset'
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+where (var_in /= missing_value) pre = real(var_in) * scale_factor + add_offset			! Where pre is not missing value, calculate real values using add_offset and scale_factor
 
 
 !---------------------------------------------------------------------
@@ -189,12 +213,13 @@ if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 !---------------------------------------------------------------------
 ! data check
+write(so,*)'Year, month, tmin, tmean, tmax, precip:'
 
 i = 1
 do y = 1,nyrs
   do m = 1,12
   
-    write(so,'(2i5,3f7.1)')y,m,tmp(1,1,i) - 0.5 * dtr(1,1,i),tmp(1,1,i),tmp(1,1,i) + 0.5 * dtr(1,1,i)
+    write(so,'(2i5,3f7.1,f7.1)')y,m,tmp(1,1,i) - 0.5 * dtr(1,1,i),tmp(1,1,i),tmp(1,1,i) + 0.5 * dtr(1,1,i), pre(1,1,i)
 
     i = i + 1
 
