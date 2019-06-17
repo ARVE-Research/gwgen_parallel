@@ -14,152 +14,163 @@ implicit none
 
 ! inquire about the dimensions of the input file
 
-character(100) :: infile
+character(100) :: infile									! input file name
 
-integer :: xlen
-integer :: ylen
-integer :: tlen
+integer :: xlen												! length of dimension 'lat'
+integer :: ylen												! length of dimension 'long'
+integer :: tlen												! length of dimension 'time'
 
 integer :: ifid
 integer :: dimid
 integer :: varid
 
-real(dp), allocatable, dimension(:) :: lon
-real(dp), allocatable, dimension(:) :: lat
+real(dp), allocatable, dimension(:) :: lon					! Make allocatable array for longitude
+real(dp), allocatable, dimension(:) :: lat					! Make allocatable array for latitude
 
 integer, dimension(2) :: xpos
 integer, dimension(2) :: ypos
 
-integer :: srtx
-integer :: srty
-integer :: cntx
-integer :: cnty
+integer :: srtx												! Start value x for boundary box (upper left??????)
+integer :: srty												! Start value y for boundary box
+integer :: cntx												! Amount of longitude cells
+integer :: cnty												! Amount of latitude cells
 
-integer(i2), allocatable, dimension(:,:,:) :: var_in  ! temporary array for input data in i2 format
+integer(i2), allocatable, dimension(:,:,:) :: var_in  		! temporary array for input data in i2 format
 
-real(sp), allocatable, dimension(:,:,:) :: tmp  ! mean monthly temperature (degC)
-real(sp), allocatable, dimension(:,:,:) :: dtr  ! mean monthly diurnal temperature range (degC)
-real(sp), allocatable, dimension(:,:,:) :: pre  ! total monthly precipitation (mm)
-real(sp), allocatable, dimension(:,:,:) :: wet  ! number of days in the month with precipitation > 0.1 mm (days)
-real(sp), allocatable, dimension(:,:,:) :: cld  ! mean monthly cloud cover (percent)
-real(sp), allocatable, dimension(:,:,:) :: wnd  ! mean monthly 10m windspeed (m s-1)
+real(sp), allocatable, dimension(:,:,:) :: tmp  			! mean monthly temperature (degC)
+real(sp), allocatable, dimension(:,:,:) :: dtr  			! mean monthly diurnal temperature range (degC)
+real(sp), allocatable, dimension(:,:,:) :: pre  			! total monthly precipitation (mm)
+real(sp), allocatable, dimension(:,:,:) :: wet  			! number of days in the month with precipitation > 0.1 mm (days)
+real(sp), allocatable, dimension(:,:,:) :: cld  			! mean monthly cloud cover (percent)
+real(sp), allocatable, dimension(:,:,:) :: wnd  			! mean monthly 10m windspeed (m s-1)
 
 real(sp) :: scale_factor
 real(sp) :: add_offset
 integer(i2) :: missing_value
 
 integer :: i,y,m
-integer :: nyrs
+integer :: nyrs												! Number of years (tlen/12)
 integer :: nmos
 
 !----------------------------------------------------
+! Read dimension IDs and lengths of dimensions
 
 call getarg(1,infile)
+	
+ncstat = nf90_open(infile,nf90_nowrite,ifid)				! Open netCDF-file (inpput file name, no writing rights, assigned file number)
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)			! Check for errors (after every step)
 
-ncstat = nf90_open(infile,nf90_nowrite,ifid)
+ncstat = nf90_inq_dimid(ifid,'lon',dimid)					! get dimension ID from dimension 'lon' in the input file (file id, dimension name, dimension ID)
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_inq_dimid(ifid,'lon',dimid)
+ncstat = nf90_inquire_dimension(ifid,dimid,len=xlen)		! get dimension name and length from input file for dimension previously inquired (file id, dimension ID, length will be written in variable xlen)
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_inquire_dimension(ifid,dimid,len=xlen)
+ncstat = nf90_inq_dimid(ifid,'lat',dimid)					! Get dimension ID from dimension 'lat' 
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_inq_dimid(ifid,'lat',dimid)
+ncstat = nf90_inquire_dimension(ifid,dimid,len=ylen)		! Get length of dimension 'lat' and assign it to variable ylen
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_inquire_dimension(ifid,dimid,len=ylen)
+ncstat = nf90_inq_dimid(ifid,'time',dimid)					! Get dimension ID for time
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_inq_dimid(ifid,'time',dimid)
+ncstat = nf90_inquire_dimension(ifid,dimid,len=tlen)		! Get length of dimension 'time' and assign it to variable tlen
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_inquire_dimension(ifid,dimid,len=tlen)
-if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
-
-nyrs = tlen / 12
+nyrs = tlen / 12											! Number of years = months / 12
 
 write(so,*)xlen,ylen,nyrs
 
-allocate(lon(xlen))
-allocate(lat(ylen))
+!----------------------------------------------------
+! Read variable IDs and values 
 
-ncstat = nf90_inq_varid(ifid,"lon",varid)
+allocate(lon(xlen))											! Allocate length to longitude array
+allocate(lat(ylen))											! Allocate length to latitude array
+
+ncstat = nf90_inq_varid(ifid,"lon",varid)					! Get variable ID for longitude
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+	
+ncstat = nf90_get_var(ifid,varid,lon)						! Get variable values for longitude
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_get_var(ifid,varid,lon)
+ncstat = nf90_inq_varid(ifid,"lat",varid)					! Get variable ID for latitude
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)			
+
+ncstat = nf90_get_var(ifid,varid,lat)						! Get variable values for latitude
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_inq_varid(ifid,"lat",varid)
-if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+!----------------------------------------------------
+! In terminal, call the programs coordstring and parsecoords to determine boundaries of area of interest (translates lat/long values into indices of the lat/long arrays)
 
-ncstat = nf90_get_var(ifid,varid,lat)
-if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
-
-call getarg(2,coordstring)
+call getarg(2,coordstring)									
 
 call parsecoords(coordstring,bounds)
 
-write(so,*)bounds
+write(so,*)bounds											! Print boundaries of area of interest
 
 call calcpixels(lon,lat,bounds,xpos,ypos,srtx,srty,cntx,cnty)
 
-write(so,*)xpos
-write(so,*)ypos
-write(so,*)cntx,cnty
+write(so,*)xpos												! Print start position of longitude
+write(so,*)ypos												! Print start position of latitude
+write(so,*)cntx,cnty										! Print counts of x and y cells	
 
-allocate(var_in(cntx,cnty,tlen))
+allocate(var_in(cntx,cnty,tlen))							! Allocate space in input array 'var_in' (x-range, y-range and temporal range)
 
 !---------------------------------------------------------------------
 ! get the temperature array timeseries
 
-allocate(tmp(cntx,cnty,tlen))
+allocate(tmp(cntx,cnty,tlen))								! Allocate space of area of interest and temporal range to tmp array (mean monthly temperature)
 
-tmp = -9999.
+tmp = -9999.												! Set tmp to -9999
 
-ncstat = nf90_inq_varid(ifid,"tmp",varid)
+ncstat = nf90_inq_varid(ifid,"tmp",varid)					! Get variable ID of variable tmp 
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,1],count=[cntx,cnty,tlen])
+ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,1],count=[cntx,cnty,tlen])		! Get values for variable tmp from input file, starting at the starting point and going for cnt x and y cells
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_get_att(ifid,varid,"missing_value",missing_value)
+ncstat = nf90_get_att(ifid,varid,"missing_value",missing_value)							! Get attribute 'missing value' in the variable temperature
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_get_att(ifid,varid,"scale_factor",scale_factor)
+ncstat = nf90_get_att(ifid,varid,"scale_factor",scale_factor)							! Get attribute 'scale factor' 
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_get_att(ifid,varid,"add_offset",add_offset)
+ncstat = nf90_get_att(ifid,varid,"add_offset",add_offset)								! Get attribute 'add_offset'
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-where (var_in /= missing_value) tmp = real(var_in) * scale_factor + add_offset
+where (var_in /= missing_value) tmp = real(var_in) * scale_factor + add_offset			! Where the temperature attribute is not missing value, calculate the real temperature using the scale factor and the add_offset
 
 !---------------------------------------------------------------------
 ! get the diurnal temperature range array timeseries
 
-allocate(dtr(cntx,cnty,tlen))
+allocate(dtr(cntx,cnty,tlen))								! Allocate space to array dtr 
 
-dtr = -9999.
+dtr = -9999.												! Set dtr to -9999								
 
-ncstat = nf90_inq_varid(ifid,"dtr",varid)
+ncstat = nf90_inq_varid(ifid,"dtr",varid)					! Get variable ID of variable dtr
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,1],count=[cntx,cnty,tlen])
+ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,1],count=[cntx,cnty,tlen])		! Get values for variable dtr from input file, based on area and time scale of interest
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_get_att(ifid,varid,"missing_value",missing_value)
+ncstat = nf90_get_att(ifid,varid,"missing_value",missing_value)							! Get attribute 'missing_value'
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_get_att(ifid,varid,"scale_factor",scale_factor)
+ncstat = nf90_get_att(ifid,varid,"scale_factor",scale_factor)							! Get attribute 'scale_factor'
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_get_att(ifid,varid,"add_offset",add_offset)
+ncstat = nf90_get_att(ifid,varid,"add_offset",add_offset)								! Get attribute 'add_offset'
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-where (var_in /= missing_value) dtr = real(var_in) * scale_factor + add_offset
+where (var_in /= missing_value) dtr = real(var_in) * scale_factor + add_offset			! Where dtr is not missing value, calculate real values using add_offset and scale_factor
 
 !---------------------------------------------------------------------
 ! get the precipitation array timeseries
+
+
+
+
 
 !---------------------------------------------------------------------
 ! get the wet days array timeseries
