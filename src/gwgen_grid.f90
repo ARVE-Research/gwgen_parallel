@@ -199,11 +199,76 @@ where (var_in /= missing_value) pre = real(var_in) * scale_factor + add_offset		
 !---------------------------------------------------------------------
 ! get the wet days array timeseries
 
+allocate(wet(cntx,cnty,tlen))															! Allocate space to array wet (precipitation) 
+
+wet = -9999.																			! Set wet to -9999								
+
+ncstat = nf90_inq_varid(ifid,"wet",varid)												! Get variable ID of variable wet
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,1],count=[cntx,cnty,tlen])		! Get values for variable wet from input file, based on area and time scale of interest
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_get_att(ifid,varid,"missing_value",missing_value)							! Get attribute 'missing_value'
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_get_att(ifid,varid,"scale_factor",scale_factor)							! Get attribute 'scale_factor'
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_get_att(ifid,varid,"add_offset",add_offset)								! Get attribute 'add_offset'
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+where (var_in /= missing_value) wet = real(var_in) * scale_factor + add_offset			! Where wet is not missing value, calculate real values using add_offset and scale_factor
+
+
 !---------------------------------------------------------------------
 ! get the cloud cover array timeseries
 
+allocate(cld(cntx,cnty,tlen))															! Allocate space to array cld (precipitation) 
+
+cld = -9999.																			! Set cld to -9999								
+
+ncstat = nf90_inq_varid(ifid,"cld",varid)												! Get variable ID of variable cld
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,1],count=[cntx,cnty,tlen])		! Get values for variable cld from input file, based on area and time scale of interest
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_get_att(ifid,varid,"missing_value",missing_value)							! Get attribute 'missing_value'
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_get_att(ifid,varid,"scale_factor",scale_factor)							! Get attribute 'scale_factor'
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_get_att(ifid,varid,"add_offset",add_offset)								! Get attribute 'add_offset'
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+where (var_in /= missing_value) cld = real(var_in) * scale_factor + add_offset			! Where cld is not missing value, calculate real values using add_offset and scale_factor
+
+
 !---------------------------------------------------------------------
 ! get the wind speed array timeseries
+
+allocate(wnd(cntx,cnty,tlen))															! Allocate space to array wnd (precipitation) 
+
+wnd = -9999.																			! Set wnd to -9999								
+
+ncstat = nf90_inq_varid(ifid,"wnd",varid)												! Get variable ID of variable wnd
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,1],count=[cntx,cnty,tlen])		! Get values for variable wnd from input file, based on area and time scale of interest
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_get_att(ifid,varid,"missing_value",missing_value)							! Get attribute 'missing_value'
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_get_att(ifid,varid,"scale_factor",scale_factor)							! Get attribute 'scale_factor'
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_get_att(ifid,varid,"add_offset",add_offset)								! Get attribute 'add_offset'
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+where (var_in /= missing_value) wnd = real(var_in) * scale_factor + add_offset			! Where wnd is not missing value, calculate real values using add_offset and scale_factor
 
 !---------------------------------------------------------------------
 ! close the input file
@@ -211,16 +276,20 @@ where (var_in /= missing_value) pre = real(var_in) * scale_factor + add_offset		
 ncstat = nf90_close(ifid)
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
+
 !---------------------------------------------------------------------
 ! data check
-write(so,*)'Year, month, tmin, tmean, tmax, precip:'
+
+write(so,*)'Year, month, tmin, tmean, tmax, precip, wet days, cloud, wind:'
 
 i = 1
 do y = 1,nyrs
   do m = 1,12
   
-    write(so,'(2i5,3f7.1,f7.1)')y,m,tmp(1,1,i) - 0.5 * dtr(1,1,i),tmp(1,1,i),tmp(1,1,i) + 0.5 * dtr(1,1,i), pre(1,1,i)
-
+    write(so,'(2i5, 7f7.2)')y,m,&
+    tmp(1,1,i) - 0.5 * dtr(1,1,i),tmp(1,1,i),tmp(1,1,i) + 0.5 * dtr(1,1,i),& 
+    pre(1,1,i), wet(1,1,i), cld(1,1,i)/100, wnd(1,1,i)
+    
     i = i + 1
 
   end do
@@ -228,7 +297,7 @@ end do
 
 !---------------------------------------------------------------------
 
-
+! '(2i5,3f7.1)'
 
 
 
