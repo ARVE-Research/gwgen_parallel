@@ -1,9 +1,11 @@
 program gwgen_grid
 
-! use the Makefile to compile this program
+! Use Makefile to compile this program
 
-! program to run gwgen with gridded input, provide the name of a climate data input file and geographic bounds for the simulation using a xmin/xmax/ymin/ymax string
+! Program to run gwgen with gridded input, provide the name of a climate data input file and geographic bounds for the simulation using a xmin/xmax/ymin/ymax string
 ! JO Kaplan, HKU, 2019
+
+! Terminal command line: ./gwgen_grid ~/path/to/input.file x_coordinate/y_coordinate
 
 use parametersmod, only : sp,dp,i4,i2,so
 use errormod, only : ncstat,netcdf_err
@@ -12,7 +14,7 @@ use netcdf
 
 implicit none
 
-! inquire about the dimensions of the input file
+! Inquire about the dimensions of the input file
 
 character(100) :: infile									! input file name
 
@@ -20,22 +22,37 @@ integer :: xlen												! length of dimension 'lat'
 integer :: ylen												! length of dimension 'long'
 integer :: tlen												! length of dimension 'time'
 
-integer :: ifid
-integer :: dimid
-integer :: varid
+! IDs for file, dimensions and variables
 
-real(dp), allocatable, dimension(:) :: lon					! Make allocatable array for longitude
-real(dp), allocatable, dimension(:) :: lat					! Make allocatable array for latitude
+integer :: ifid												! Input file ID
+integer :: dimid											! Dimension ID
+integer :: varid											! Variable ID
+
+
+! Allocatable arrays for longitude and latitude
+
+real(dp), allocatable, dimension(:) :: lon					
+real(dp), allocatable, dimension(:) :: lat					
+real(dp), allocatable, dimension(:) :: time
 
 integer, dimension(2) :: xpos
 integer, dimension(2) :: ypos
 
-integer :: srtx												! Start value x for boundary box (upper left??????)
-integer :: srty												! Start value y for boundary box
-integer :: cntx												! Amount of longitude cells
-integer :: cnty												! Amount of latitude cells
 
-integer(i2), allocatable, dimension(:,:,:) :: var_in  		! temporary array for input data in i2 format
+! Start values of x and y (LLC), and counts of cells in both directions: 
+
+integer :: srtx												
+integer :: srty												
+integer :: cntx												
+integer :: cnty												
+
+
+! Array to store the input attributes
+
+integer(i2), allocatable, dimension(:,:,:) :: var_in  		
+
+
+! Monthly input attributes
 
 real(sp), allocatable, dimension(:,:,:) :: tmp  			! mean monthly temperature (degC)
 real(sp), allocatable, dimension(:,:,:) :: dtr  			! mean monthly diurnal temperature range (degC)
@@ -44,19 +61,37 @@ real(sp), allocatable, dimension(:,:,:) :: wet  			! number of days in the month
 real(sp), allocatable, dimension(:,:,:) :: cld  			! mean monthly cloud cover (percent)
 real(sp), allocatable, dimension(:,:,:) :: wnd  			! mean monthly 10m windspeed (m s-1)
 
-real(sp) :: scale_factor
-real(sp) :: add_offset
-integer(i2) :: missing_value
+! Monthly input attributes calculated here
 
-integer :: i,y,m
+real(sp), allocatable, dimension(:,:,:) :: mtmin  			! maximum monthly temperature (degC)
+real(sp), allocatable, dimension(:,:,:) :: mtmax  			! monthly minimum temperature (degC)
+real(sp), allocatable, dimension(:,:,:) :: wetf				! fraction of wet days in a month
+
+real(sp) :: scale_factor									! Value for the calculation of the "real" value of the parameters. Can be found in the netCDF file
+real(sp) :: add_offset										! Value for the calculation of the "real" value of the parameters. Can be found in the netCDF file
+integer(i2) :: missing_value								! Missing values in the input file
+
+
+! Elements to calculate current year and amount of days in current month
+
+integer :: i,y,m,j,x,t
 integer :: nyrs												! Number of years (tlen/12)
-integer :: nmos
+integer, parameter :: nmos = 12								! Number of months
+
+integer, parameter :: startyr = 1871						! Start year set to 1871
+integer :: endyr											! End year (2010, not set yet)
+
+integer :: yr												! Variable year 
+integer :: mon												! Variable month 
+
+integer, allocatable, dimension(:) :: nd					
 
 
-!----------------------------------------------------
-! Read dimension IDs and lengths of dimensions
+!-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+! INPUT: Read dimension IDs and lengths of dimensions
 
-call getarg(1,infile)
+call getarg(1,infile)										! Reads first argument in the command line (path to input file)
 	
 ncstat = nf90_open(infile,nf90_nowrite,ifid)				! Open netCDF-file (inpput file name, no writing rights, assigned file number)
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)			! Check for errors (after every step)
@@ -89,6 +124,7 @@ write(so,*)xlen,ylen,nyrs
 
 allocate(lon(xlen))											! Allocate length to longitude array
 allocate(lat(ylen))											! Allocate length to latitude array
+allocate(time(tlen))											! Allocate length to latitude array
 
 ncstat = nf90_inq_varid(ifid,"lon",varid)					! Get variable ID for longitude
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
@@ -102,11 +138,17 @@ if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 ncstat = nf90_get_var(ifid,varid,lat)						! Get variable values for latitude
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
+ncstat = nf90_inq_varid(ifid,"time",varid)					! Get variable ID for latitude
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)			
+
+ncstat = nf90_get_var(ifid,varid,time)						! Get variable values for latitude
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
 
 !----------------------------------------------------
 ! In terminal, call the programs coordstring and parsecoords to determine boundaries of area of interest (translates lat/long values into indices of the lat/long arrays)
 
-call getarg(2,coordstring)									
+call getarg(2,coordstring)									! Reads second argument in the command line (coordinates in lat/long format divided by /)
 
 call parsecoords(coordstring,bounds)
 
@@ -122,7 +164,7 @@ allocate(var_in(cntx,cnty,tlen))							! Allocate space in input array 'var_in' 
 
 
 !---------------------------------------------------------------------
-! get the temperature array timeseries
+! get the TEMPERATURE array timeseries
 
 allocate(tmp(cntx,cnty,tlen))								! Allocate space of area of interest and temporal range to tmp array (mean monthly temperature)
 
@@ -172,7 +214,7 @@ where (var_in /= missing_value) dtr = real(var_in) * scale_factor + add_offset		
 
 
 !---------------------------------------------------------------------
-! get the precipitation array timeseries
+! get the PRECIPITATION array timeseries
 
 allocate(pre(cntx,cnty,tlen))															! Allocate space to array pre (precipitation) 
 
@@ -197,7 +239,7 @@ where (var_in /= missing_value) pre = real(var_in) * scale_factor + add_offset		
 
 
 !---------------------------------------------------------------------
-! get the wet days array timeseries
+! get the NUMBER OF WET DAYS array timeseries
 
 allocate(wet(cntx,cnty,tlen))															! Allocate space to array wet (precipitation) 
 
@@ -222,7 +264,7 @@ where (var_in /= missing_value) wet = real(var_in) * scale_factor + add_offset		
 
 
 !---------------------------------------------------------------------
-! get the cloud cover array timeseries
+! get the CLOUD COVER array timeseries
 
 allocate(cld(cntx,cnty,tlen))															! Allocate space to array cld (precipitation) 
 
@@ -247,7 +289,7 @@ where (var_in /= missing_value) cld = real(var_in) * scale_factor + add_offset		
 
 
 !---------------------------------------------------------------------
-! get the wind speed array timeseries
+! get the WIND SPEED array timeseries
 
 allocate(wnd(cntx,cnty,tlen))															! Allocate space to array wnd (precipitation) 
 
@@ -270,35 +312,135 @@ if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 where (var_in /= missing_value) wnd = real(var_in) * scale_factor + add_offset			! Where wnd is not missing value, calculate real values using add_offset and scale_factor
 
+
 !---------------------------------------------------------------------
-! close the input file
+! get the MINIMUM TEMPERATURE array timeseries
+
+allocate(mtmin(cntx,cnty,tlen))															! Allocate space to array tmin (monthly minimum temperature)
+
+mtmin = -9999.
+
+mtmin = tmp - 0.5 * dtr
+
+
+!---------------------------------------------------------------------
+! get the MAXIMUM TEMPERATURE array timeseries
+
+allocate(mtmax(cntx,cnty,tlen))															! Allocate space to array tmax (monthly minimum temperature)
+
+mtmax = -9999.
+
+mtmax = tmp + 0.5 * dtr
+
+
+!---------------------------------------------------------------------
+! get the FRACTION OF WET DAYS array timeseries
+
+allocate(wetf(cntx,cnty,tlen))												
+
+wetf = -9999.																			! Set wetf to -9999
+
+allocate(nd(tlen))																		! Allocate space to array nd (length: time (tlen))
+
+i = 1
+
+endyr = startyr + nyrs - 1																! Calculate endyr (start year + number of years in time series)
+
+! apply function ndaymonth to the time series:
+do yr = startyr,endyr																	! Do, for every year from start year to end year
+  do mon = 1,12																			! and for every month from 1 to 12
+    
+    nd(i) = ndaymonth(yr,mon)																
+
+      
+     write(*,*)i,yr,mon,nd(i)
+
+    
+    i = i + 1 
+    
+  end do
+end do
+
+! use output of step above to calculate fraction of wet days a month
+do j = 1,cnty																			! Do, for every year j in amount of years
+  do i = 1,cntx																			! and for every month 
+    wetf(i,j,:) = wet(i,j,:) / real(nd)													! calculate fraction of wet days and save it in 'wetf"
+
+    write(*,*)i,j,y,wet(i,j,t),nd(t)
+
+  end do
+end do
+
+
+!---------------------------------------------------------------------
+! DATA CHECK W/ OUTPUT
+
+write(so,*)'Year, month, tmin (C), tmean (C), tmax (C), precip (mm), wet days, &
+cloud cover fraction, wind speed (m/s), fraction wet days:'								! Caption for data check output
+
+i = 1
+do y = 1,nyrs																			! Do, for each year
+  do m = 1,nmos																			! and within each year, for each month
+  	
+    write(so,'(2i5, 8f9.2)')y+startyr-1,m,&												! print the attribute values for (lat, long, time step)
+    mtmin(1,1,i),tmp(1,1,i),mtmax(1,1,i),& 
+    pre(1,1,i), wet(1,1,i), cld(1,1,i)/100, wnd(1,1,i), wetf(1,1,i)
+    
+    i = i + 1																			! then add one to the time step
+
+  end do
+end do
+
+
+!---------------------------------------------------------------------
+! CLOSE INPUT FILE
 
 ncstat = nf90_close(ifid)
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 
 !---------------------------------------------------------------------
-! data check
+!---------------------------------------------------------------------
+! FUNCTION TO DETERMINE AMOUNT OF DAYS IN A MONTH
 
-write(so,*)'Year, month, tmin, tmean, tmax, precip, wet days, cloud, wind:'
+contains
 
-i = 1
-do y = 1,nyrs
-  do m = 1,12
-  
-    write(so,'(2i5, 7f7.2)')y,m,&
-    tmp(1,1,i) - 0.5 * dtr(1,1,i),tmp(1,1,i),tmp(1,1,i) + 0.5 * dtr(1,1,i),& 
-    pre(1,1,i), wet(1,1,i), cld(1,1,i)/100, wnd(1,1,i)
-    
-    i = i + 1
+integer function ndaymonth(yr,mon)													! Function to find out the number of days in a month, considering leap years and the year given as AD
 
-  end do
-end do
+! Input: Current year and month
+integer, intent(in) :: yr 															
+integer, intent(in) :: mon 															
+
+! Arrays defining standard and leap years
+integer, parameter, dimension(12) :: std_year = [ 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 ]
+integer, parameter, dimension(12) :: leapyear = [ 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 ]
+
+
+! If-statement to find out which kind of year it is:
+
+if (mod(yr,400) == 0) then					! If year can be divided by 400, then it's a leap year
+
+	ndaymonth = leapyear(mon)				! Chose amount of days from leap year array		
+
+  else if (mod(yr,100) == 0) then			! If year can be divided by 100, then it's a standard year 
+
+	ndaymonth = std_year(mon)					
+
+  else if (mod(yr,4) == 0) then				! If year can be divided by 4, it's a leapyear
+
+	ndaymonth = leapyear(mon)
+
+  else										! Else, it's a standard year 
+
+	ndaymonth = std_year(mon)
+
+end if 
+
+end function ndaymonth
+
+
 
 !---------------------------------------------------------------------
-
-! '(2i5,3f7.1)'
-
-
+! END PROGRAM GWGEN_GRID
 
 end program gwgen_grid
