@@ -84,8 +84,28 @@ integer :: endyr											! End year (2010, not set yet)
 integer :: yr												! Variable year 
 integer :: mon												! Variable month 
 
-integer, allocatable, dimension(:) :: nd					
+integer, allocatable, dimension(:) :: nd	
 
+
+! Elements for the smoothing process:
+
+real, dimension(-1:1) :: mtmin3m							! Scalar for monthly minimum temperature
+real, dimension(-1:1) :: mtmax3m							! Scalar for monthly maximum temperature
+real, dimension(-1:1) :: nd3m								! Scalar for number of days in the month
+real, dimension(-1:1) :: cld3m								! Scalar for monthly cloud fractions
+real, dimension(-1:1) :: wnd3m								! Scalar for monthly wind speeds	
+
+real(sp), dimension(2) :: bcond_tmin       					! boundary conditions of min temp for smoothing
+real(sp), dimension(2) :: bcond_tmax       					! boundary conditions of max temp for smoothing
+real(sp), dimension(2) :: bcond_cld 		   				! boundary conditions of cloud for smoothing
+real(sp), dimension(2) :: bcond_wnd       					! boundary conditions of wind speed for smoothing				
+real(sp), dimension(2) :: bcond_nd 		      				! boundary conditions of number of days for smoothing
+
+real(sp), dimension(31) :: tmin_sm							! smoothed daily values of min temperature
+real(sp), dimension(31) :: tmax_sm 							! smoothed daily values of max temperature
+real(sp), dimension(31) :: nd_sm 							! smoothed daily values of max temperature
+real(sp), dimension(31) :: cld_sm 							! smoothed daily values of cloudiness
+real(sp), dimension(31) :: wnd_sm  							! smoothed daily values of wind speed
 
 !-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 !----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -122,55 +142,55 @@ write(so,*)xlen,ylen,nyrs
 !----------------------------------------------------
 ! Read variable IDs and values 
 
-allocate(lon(xlen))											! Allocate length to longitude array
-allocate(lat(ylen))											! Allocate length to latitude array
-allocate(time(tlen))											! Allocate length to latitude array
+allocate(lon(xlen))														! Allocate length to longitude array
+allocate(lat(ylen))														! Allocate length to latitude array
+allocate(time(tlen))													! Allocate length to latitude array
 
-ncstat = nf90_inq_varid(ifid,"lon",varid)					! Get variable ID for longitude
+ncstat = nf90_inq_varid(ifid,"lon",varid)								! Get variable ID for longitude
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 	
-ncstat = nf90_get_var(ifid,varid,lon)						! Get variable values for longitude
+ncstat = nf90_get_var(ifid,varid,lon)									! Get variable values for longitude
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_inq_varid(ifid,"lat",varid)					! Get variable ID for latitude
+ncstat = nf90_inq_varid(ifid,"lat",varid)								! Get variable ID for latitude
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)			
 
-ncstat = nf90_get_var(ifid,varid,lat)						! Get variable values for latitude
+ncstat = nf90_get_var(ifid,varid,lat)									! Get variable values for latitude
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_inq_varid(ifid,"time",varid)					! Get variable ID for latitude
+ncstat = nf90_inq_varid(ifid,"time",varid)								! Get variable ID for latitude
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)			
 
-ncstat = nf90_get_var(ifid,varid,time)						! Get variable values for latitude
+ncstat = nf90_get_var(ifid,varid,time)									! Get variable values for latitude
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 
 !----------------------------------------------------
 ! In terminal, call the programs coordstring and parsecoords to determine boundaries of area of interest (translates lat/long values into indices of the lat/long arrays)
 
-call getarg(2,coordstring)									! Reads second argument in the command line (coordinates in lat/long format divided by /)
+call getarg(2,coordstring)												! Reads second argument in the command line (coordinates in lat/long format divided by /)
 
 call parsecoords(coordstring,bounds)
 
-write(so,*)bounds											! Print boundaries of area of interest
+write(so,*)bounds														! Print boundaries of area of interest
 
 call calcpixels(lon,lat,bounds,xpos,ypos,srtx,srty,cntx,cnty)
 
-write(so,*)'xpos: ',xpos									! Print start position of longitude
-write(so,*)'ypos: ',ypos									! Print start position of latitude
-write(so,*)'cntx, cnty: ',cntx,cnty							! Print counts of x and y cells	
+write(so,*)'xpos: ',xpos												! Print start position of longitude
+write(so,*)'ypos: ',ypos												! Print start position of latitude
+write(so,*)'cntx, cnty: ',cntx,cnty										! Print counts of x and y cells	
 
-allocate(var_in(cntx,cnty,tlen))							! Allocate space in input array 'var_in' (x-range, y-range and temporal range)
+allocate(var_in(cntx,cnty,tlen))										! Allocate space in input array 'var_in' (x-range, y-range and temporal range)
 
 
 !---------------------------------------------------------------------
 ! get the TEMPERATURE array timeseries
 
-allocate(tmp(cntx,cnty,tlen))								! Allocate space of area of interest and temporal range to tmp array (mean monthly temperature)
+allocate(tmp(cntx,cnty,tlen))											! Allocate space of area of interest and temporal range to tmp array (mean monthly temperature)
 
-tmp = -9999.												! Set tmp to -9999
+tmp = -9999.															! Set tmp to -9999
 
-ncstat = nf90_inq_varid(ifid,"tmp",varid)					! Get variable ID of variable tmp 
+ncstat = nf90_inq_varid(ifid,"tmp",varid)								! Get variable ID of variable tmp 
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,1],count=[cntx,cnty,tlen])		! Get values for variable tmp from input file, starting at the starting point and going for cnt x and y cells
@@ -191,11 +211,11 @@ where (var_in /= missing_value) tmp = real(var_in) * scale_factor + add_offset		
 !---------------------------------------------------------------------
 ! get the diurnal temperature range array timeseries
 
-allocate(dtr(cntx,cnty,tlen))								! Allocate space to array dtr 
+allocate(dtr(cntx,cnty,tlen))											! Allocate space to array dtr 
 
-dtr = -9999.												! Set dtr to -9999								
+dtr = -9999.															! Set dtr to -9999								
 
-ncstat = nf90_inq_varid(ifid,"dtr",varid)					! Get variable ID of variable dtr
+ncstat = nf90_inq_varid(ifid,"dtr",varid)								! Get variable ID of variable dtr
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,1],count=[cntx,cnty,tlen])		! Get values for variable dtr from input file, based on area and time scale of interest
@@ -390,6 +410,92 @@ do y = 1,nyrs																			! Do, for each year
 
   end do
 end do
+
+
+!---------------------------------------------------------------------
+! PREPARE data for SMOOTHING
+
+i = 1																		! Two placeholders i,j 
+j = 1													
+
+
+! SMOOTHING DO LOOP: 
+
+do t = 1,tlen																! For very time step in tlen
+
+  if (t == 1) then  														! If t is the first time step (first month), use the current month's values for the preceding month
+  
+    mtmin3m(-1) = mtmin(i,j,t)												! Preceding month gets current months's values
+    mtmin3m(0)  = mtmin(i,j,t)	
+    mtmin3m(1)  = mtmin(i,j,t+1)
+    mtmax3m(-1) = mtmax(i,j,t)
+    mtmax3m(0)  = mtmax(i,j,t)
+    mtmax3m(1)  = mtmax(i,j,t+1)
+    nd3m(-1) = nd(t)
+    nd3m(0)  = nd(t)
+    nd3m(1)  = nd(t+1)
+    cld3m(-1) = cld(i,j,t)
+    cld3m(0)  = cld(i,j,t)
+    cld3m(1)  = cld(i,j,t+1)
+    wnd3m(-1) = wnd(i,j,t)
+    wnd3m(0)  = wnd(i,j,t)
+    wnd3m(1)  = wnd(i,j,t+1)
+  
+  else if (t == tlen) then														! If it's the last time step (last month), use the current month's values for the month after the current one
+  
+    mtmin3m(-1) = mtmin(i,j,t-1)			
+    mtmin3m(0)  = mtmin(i,j,t)
+    mtmin3m(1)  = mtmin(i,j,t)												! Month after current one (not in the time frame anymore) gets current month's values
+    mtmax3m(-1) = mtmax(i,j,t-1)
+    mtmax3m(0)  = mtmax(i,j,t)
+    mtmax3m(1)  = mtmax(i,j,t)
+    nd3m(-1) = nd(t-1)
+    nd3m(0)  = nd(t)
+    nd3m(1)  = nd(t)
+    cld3m(-1) = cld(i,j,t-1)
+    cld3m(0)  = cld(i,j,t)
+    cld3m(1)  = cld(i,j,t)
+    wnd3m(-1) = wnd(i,j,t-1)
+    wnd3m(0)  = wnd(i,j,t)
+    wnd3m(1)  = wnd(i,j,t)
+    
+  else																		! All other cases: time steps include month before current month, current month, 
+  																			! and month after the current month
+    mtmin3m(-1) = mtmin(i,j,t-1)
+    mtmin3m(0)  = mtmin(i,j,t)
+    mtmin3m(1)  = mtmin(i,j,t+1)
+    mtmax3m(-1) = mtmax(i,j,t-1)
+    mtmax3m(0)  = mtmax(i,j,t)
+    mtmax3m(1)  = mtmax(i,j,t+1)
+	nd3m(-1) = nd(t-1)
+    nd3m(0)  = nd(t)
+    nd3m(1)  = nd(t+1)
+	cld3m(-1) = cld(i,j,t-1)
+    cld3m(0)  = cld(i,j,t)
+    cld3m(1)  = cld(i,j,t+1)
+    wnd3m(-1) = wnd(i,j,t-1)
+    wnd3m(0)  = wnd(i,j,t)
+    wnd3m(1)  = wnd(i,j,t+1)
+    
+  end if
+
+  bcond_tmin(1) = mtmin3m(-1)												! Set boundary conditions for variables 
+  bcond_tmin(2) = mtmin3m(1)
+  bcond_tmax(1) = mtmax3m(-1)
+  bcond_tmax(2) = mtmax3m(1)
+  bcond_nd(1) = nd3m(-1)
+  bcond_nd(2) = nd3m(1)
+  bcond_cld(1) = cld3m(-1)
+  bcond_cld(2) = cld3m(1)
+  bcond_wnd(1) = wnd3m(-1)
+  bcond_wnd(2) = wnd3m(1)
+
+  call rmsmooth(mtmin3m,nd3m,bcond_tmin,tmin_sm)							! Smooth minimum variables
+  call rmsmooth(mtmax3m,nd3m,bcond_tmax,tmax_sm)
+  call rmsmooth(cld3m,nd3m,bcond_cld,cld_sm)
+  call rmsmooth(wnd3m,nd3m,bcond_wnd,wnd_sm)
+
+end do																		! End smoothing loop
 
 
 !---------------------------------------------------------------------
