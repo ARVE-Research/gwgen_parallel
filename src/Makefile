@@ -104,7 +104,9 @@ CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am_gwgen_OBJECTS = parametersmod.$(OBJEXT) errormod.$(OBJEXT) \
-	coordsmod.$(OBJEXT) gwgen_grid.$(OBJEXT)
+	coordsmod.$(OBJEXT) geohashmod.$(OBJEXT) \
+	randomdistmod.$(OBJEXT) weathergenmod.$(OBJEXT) \
+	gwgen_grid.$(OBJEXT)
 gwgen_OBJECTS = $(am_gwgen_OBJECTS)
 gwgen_LDADD = $(LDADD)
 AM_V_P = $(am__v_P_$(V))
@@ -182,7 +184,7 @@ F90_LDFLAGS_netcdf = -L/usr/local/lib
 F90_LIBS_netcdf = -lnetcdff
 F90_MODULE_netcdfmod = -I /usr/local/include
 FC = gfortran
-FCFLAGS = -Wall -pedantic -fbacktrace -g -I /usr/local/include
+FCFLAGS = -Wall -pedantic -fbacktrace -g  -ffixed-line-length-none -I /usr/local/include
 FCFLAGS_f90 = 
 HAS_NC_CONFIG = yes
 INSTALL = /sw/bin/ginstall -c
@@ -259,9 +261,12 @@ top_build_prefix = ../
 top_builddir = ..
 top_srcdir = ..
 gwgen_SOURCES = \
-  parametersmod.f90 \
-  errormod.f90 \
-  coordsmod.f90 \
+  parametersmod.f90  \
+  errormod.f90       \
+  coordsmod.f90      \
+  geohashmod.f90     \
+  randomdistmod.f90  \
+  weathergenmod.f90  \
   gwgen_grid.f90
 
 all: all-am

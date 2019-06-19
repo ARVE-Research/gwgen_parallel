@@ -11,6 +11,7 @@ use parametersmod, only : sp,dp,i4,i2,so
 use errormod, only : ncstat,netcdf_err
 use coordsmod, only : coordstring,bounds,parsecoords,calcpixels
 use netcdf
+use weathergenmod, only : metvars_in, metvars_out, weathergen, init_weathergen
 
 implicit none
 
@@ -28,6 +29,7 @@ integer :: ifid                        ! Input file ID
 integer :: dimid                      ! Dimension ID
 integer :: varid                      ! Variable ID
 
+integer, parameter :: n_curr = 0       ! current month
 
 ! Allocatable arrays for longitude and latitude
 
@@ -38,6 +40,9 @@ real(dp), allocatable, dimension(:) :: time
 integer, dimension(2) :: xpos
 integer, dimension(2) :: ypos
 
+
+integer :: d0
+integer :: d1
 
 ! Start values of x and y (LLC), and counts of cells in both directions: 
 
@@ -74,7 +79,7 @@ integer(i2) :: missing_value                ! Missing values in the input file
 
 ! Elements to calculate current year and amount of days in current month
 
-integer :: n
+integer :: n,i_count
 integer :: i,j,t,d,y,m
 integer :: nyrs                        ! Number of years (tlen/12)
 integer, parameter :: nmos = 12                ! Number of months
@@ -107,6 +112,22 @@ real(sp), dimension(3*31) :: tmax_sm               ! smoothed daily values of ma
 real(sp), dimension(3*31) :: cld_sm               ! smoothed daily values of cloudiness
 real(sp), dimension(3*31) :: wnd_sm                ! smoothed daily values of wind speed
 
+
+! For weathergen do loop 
+
+integer  :: mwetd_sim                           ! monthly simulation of wet days  
+integer  :: pdaydiff
+integer  :: pdaydiff1                           
+
+real(sp) :: mprec_sim                            ! monthly simulation of precipitation
+real(sp) :: precdiff
+real(sp) :: precdiff1
+real(sp) :: prec_t
+
+type(metvars_in)  :: met_in
+type(metvars_out) :: met_out
+
+type(metvars_out), dimension(31) :: month_met
 !-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 !----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ! INPUT: Read dimension IDs and lengths of dimensions
@@ -136,7 +157,7 @@ if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 nyrs = tlen / 12                      ! Number of years = months / 12
 
-write(so,*)'xlen, ylen, nyears: ',xlen,ylen,nyrs
+! write(so,*)'xlen, ylen, nyears: ',xlen,ylen,nyrs
 
 
 !----------------------------------------------------
@@ -172,13 +193,13 @@ call getarg(2,coordstring)                        ! Reads second argument in the
 
 call parsecoords(coordstring,bounds)
 
-write(so,*)'Bounds: ',bounds                            ! Print boundaries of area of interest
+! write(so,*)'Bounds: ',bounds                            ! Print boundaries of area of interest
 
 call calcpixels(lon,lat,bounds,xpos,ypos,srtx,srty,cntx,cnty)
 
-write(so,*)'xpos: ',xpos                        ! Print start position of longitude
-write(so,*)'ypos: ',ypos                        ! Print start position of latitude
-write(so,*)'cntx, cnty: ',cntx,cnty                    ! Print counts of x and y cells  
+! write(so,*)'xpos: ',xpos                        ! Print start position of longitude
+! write(so,*)'ypos: ',ypos                        ! Print start position of latitude
+! write(so,*)'cntx, cnty: ',cntx,cnty                    ! Print counts of x and y cells  
 
 allocate(var_in(cntx,cnty,tlen))                    ! Allocate space in input array 'var_in' (x-range, y-range and temporal range)
 
@@ -395,16 +416,15 @@ end do
 !---------------------------------------------------------------------
 ! DATA CHECK W/ OUTPUT
 
-write(so,*)'Year, month, tmin (C), tmean (C), tmax (C), precip (mm), wet days, &
-cloud cover fraction, wind speed (m/s), fraction wet days:'                 ! Caption for data check output
+!write(so,*)'Year, month, tmin (C), tmean (C), tmax (C),precip (mm), wet days, cloud cover fraction, wind speed (m/s),fraction wet days:'                            
 
 i = 1
 do y = 1,2                                      ! Do, for each year
   do m = 1,nmos                                      ! and within each year, for each month
     
-    write(so,'(2i5, 8f9.2)')y+startyr-1,m,&                        ! print the attribute values for (lat, long, time step)
-    mtmin(1,1,i),tmp(1,1,i),mtmax(1,1,i),& 
-    pre(1,1,i), wet(1,1,i), cld(1,1,i)/100, wnd(1,1,i), wetf(1,1,i)
+!     write(so,'(2i5, 8f9.2)')y+startyr-1,m,&                        ! print the attribute values for (lat, long, time step)
+!     mtmin(1,1,i),tmp(1,1,i),mtmax(1,1,i),& 
+!     pre(1,1,i), wet(1,1,i), cld(1,1,i)/100, wnd(1,1,i), wetf(1,1,i)
     
     i = i + 1                                      ! then add one to the time step
 
@@ -499,29 +519,124 @@ do t = 1,12    !tlen                          ! For very time step in tlen
   bcond_wnd(2) = wnd3m(1)
 
   
-  n = nd3m(0)                                                     !number of days in the current month
-
+!  write(*,*)'mtmax',mtmax3m
+  
   call rmsmooth(mtmin3m,nd3m,bcond_tmin,tmin_sm)                  ! Smooth minimum variables
   call rmsmooth(mtmax3m,nd3m,bcond_tmax,tmax_sm)
   call rmsmooth(cld3m,nd3m,bcond_cld,cld_sm)
   call rmsmooth(wnd3m,nd3m,bcond_wnd,wnd_sm)
 
 
-!---------------------------------------------------------------------
-! DATA CHECK W/ OUTPUT
+! write(*,*)'Smoothed data: Day,  minimum temp (C), maximum temp (C), cloud fraction, wind speed (m/s)'
 
-write(*,*)'Smoothed data: Day,  minimum temp (C), maximum temp (C), cloud fraction, wind speed (m/s)'
-  do d = nd3m(-1)+1,sum(nd3m(-1:0))
+d0 = nd3m(-1)+1
+d1 = sum(nd3m(-1:0))
+
+  
+  do d = d0,d1
    
-    write(*,'(1i3, 4f9.2)')d,tmin_sm(d),tmax_sm(d),cld_sm(d)/100,wnd_sm(d)
+!     write(*,'(1i3,4f9.2)')d,tmin_sm(d),tmax_sm(d),cld_sm(d),wnd_sm(d)
+!     write(*,*)d,tmin_sm(d),tmax_sm(d),cld_sm(d),wnd_sm(d)
   
   end do
 
-read(*,*)
+!---------------------------------------------------------------------
+! Long loop calling WEATHERGEN
+
+! save the current state of the residuals and pday
+
+met_out%pday(1) = .false.
+met_out%pday(2) = .false.
+met_out%resid = 0.
+
+prec_t = max(0.5,0.05 * pre(i,j,n_curr))                                   !set quality threshold for preciptation amount
+
+i_count = 1
+
+
+
+! write(0,*)'day loop bounds',d0,d1
+
+do    ! quality control loop
+
+do d = d0,d1  ! day loop
+   
+  met_in%prec = pre(i,j,t)
+  met_in%wetd = real(wet(i,j,t))
+  met_in%wetf = real(wetf(i,j,t))                                     ! OR just use real(wetf(n_curr))
+
+  mwetd_sim = 0
+  mprec_sim = 0.
+  
+      !start day loop
+
+          met_in%tmin  = tmin_sm(d)
+          met_in%tmax  = tmax_sm(d)
+          met_in%cldf  = real(cld_sm(d)) * 0.01
+          met_in%wind  = real(wnd_sm(d))
+          met_in%pday  = met_out%pday
+          met_in%resid = met_out%resid
+          
+          call weathergen(met_in,met_out)
+          
+          write(*,*)t,d-d0+1,mtmin3m(0),met_in%tmin,met_out%tmin
+          
+
+          met_in%rndst = met_out%rndst
+!          month_met(d) = met_out
+
+          if (met_out%prec > 0.) then
+              mwetd_sim = mwetd_sim + 1
+              mprec_sim = mprec_sim + met_out%prec
+              
+          end if
+          
+      !end of month
+  end do  ! day loop            
+  
+  ! quality control checks                                               
+
+      if (pre(i,j,n_curr) == 0.) then
+          pdaydiff = 0
+          precdiff = 0.
+          exit
+
+      else if (i_count >= 2) then                                   !enforce at least two times over the month to get initial values ok
+          pdaydiff = abs(wet(i,j,n_curr) - mwetd_sim)
+          precdiff = abs(pre(i,j,n_curr) - mprec_sim)
+
+          ! restrict simulated total monthly precip to +/-5% or 0.5 mm of observed value
+          if (pdaydiff <= 1 .and. precdiff <= prec_t) then
+              exit
+
+          else if (pdaydiff < pdaydiff1 .and. precdiff < precdiff1) then
+              !save the values you have in a buffer in case you have to leave the loop
+              pdaydiff1 = pdaydiff
+              precdiff1 = precdiff
+
+          else if (i_count > 10000) then
+              write (*,*) "No good solution found after 10000 iterations."
+              stop 1
+
+          end if
+
+      end if
+      
+!       write(0,*)'failed quality check, re-running this month'
+
+      i_count = i_count + 1
+
+end do  ! end of quality control loop
+
+!---------------------------------------------------------------------
+! DATA CHECK W/ OUTPUT
+
+! write(*,*)'passed quality check, moving on to next month'
+
+! read(*,*)
 
 end do                                    ! End smoothing loop
 
-!'(1i2,4f9.2)'
 
 !---------------------------------------------------------------------
 ! CLOSE INPUT FILE
@@ -594,7 +709,7 @@ implicit none
 
 ! Arguments
 
-real(sp), dimension(:), intent(in)  :: mv_sts          ! Vector of mean values at super-time step (e.g., monthly), minimum three values
+real(sp), dimension(:), intent(in)  :: mv_sts       ! Vector of mean values at super-time step (e.g., monthly), minimum three values
 integer,  dimension(:), intent(in)  :: dmonth       ! Vector of number of intervals for the time step (e.g., days per month)
 real(sp), dimension(2), intent(in)  :: bcond        ! Boundary conditions for the result vector (1=left side, 2=right side)
 real(sp), dimension(:), intent(out) :: r            ! Result vector of values at chosen time step
