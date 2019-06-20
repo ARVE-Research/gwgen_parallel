@@ -7,17 +7,20 @@ program gwgen_grid
 
 ! Terminal command line: ./gwgen_grid ~/path/to/input.file x_coordinate/y_coordinate
 
+! List of modules that will be used and the variables within these modules that will be used in this script:
 use parametersmod, only : sp,dp,i4,i2,so
 use errormod, only : ncstat,netcdf_err
 use coordsmod, only : coordstring,bounds,parsecoords,calcpixels
 use netcdf
+use geohashmod, only : geohash
+use randomdistmod, only : ran_seed
 use weathergenmod, only : metvars_in, metvars_out, weathergen, init_weathergen
 
 implicit none
 
 ! Inquire about the dimensions of the input file
 
-character(100) :: infile                  ! input file name
+character(100) :: infile               ! input file name
 
 integer :: xlen                        ! length of dimension 'lat'
 integer :: ylen                        ! length of dimension 'long'
@@ -26,8 +29,8 @@ integer :: tlen                        ! length of dimension 'time'
 ! IDs for file, dimensions and variables
 
 integer :: ifid                        ! Input file ID
-integer :: dimid                      ! Dimension ID
-integer :: varid                      ! Variable ID
+integer :: dimid                       ! Dimension ID
+integer :: varid                       ! Variable ID
 
 integer, parameter :: n_curr = 0       ! current month
 
@@ -40,9 +43,6 @@ real(dp), allocatable, dimension(:) :: time
 integer, dimension(2) :: xpos
 integer, dimension(2) :: ypos
 
-
-integer :: d0
-integer :: d1
 
 ! Start values of x and y (LLC), and counts of cells in both directions: 
 
@@ -80,8 +80,11 @@ integer(i2) :: missing_value                ! Missing values in the input file
 ! Elements to calculate current year and amount of days in current month
 
 integer :: n,i_count
-integer :: i,j,t,d,y,m
+integer :: i,j,t,d,y,m,s
 integer :: nyrs                        ! Number of years (tlen/12)
+integer :: d0
+integer :: d1
+
 integer, parameter :: nmos = 12                ! Number of months
 
 integer, parameter :: startyr = 1871            ! Start year set to 1871
@@ -95,11 +98,13 @@ integer, allocatable, dimension(:) :: nd
 
 ! Elements for the smoothing process:
 
-real, dimension(-1:1) :: mtmin3m              ! Scalar for monthly minimum temperature
-real, dimension(-1:1) :: mtmax3m              ! Scalar for monthly maximum temperature
-integer, dimension(-1:1) :: nd3m              ! Scalar for number of days in the month
-real, dimension(-1:1) :: cld3m                ! Scalar for monthly cloud fractions
-real, dimension(-1:1) :: wnd3m                ! Scalar for monthly wind speeds  
+integer, parameter :: w = 3  !number of months before and after to use in the smoothing
+
+real, dimension(-w:w) :: mtminbuf              ! Scalar for monthly minimum temperature
+real, dimension(-w:w) :: mtmaxbuf             ! Scalar for monthly maximum temperature
+integer, dimension(-w:w) :: ndbuf              ! Scalar for number of days in the month
+real, dimension(-w:w) :: cldbuf                ! Scalar for monthly cloud fractions
+real, dimension(-w:w) :: wndbuf                ! Scalar for monthly wind speeds  
 
 real(sp), dimension(2) :: bcond_tmin                 ! boundary conditions of min temp for smoothing
 real(sp), dimension(2) :: bcond_tmax                 ! boundary conditions of max temp for smoothing
@@ -107,10 +112,10 @@ real(sp), dimension(2) :: bcond_cld                ! boundary conditions of clou
 real(sp), dimension(2) :: bcond_wnd                 ! boundary conditions of wind speed for smoothing        
 real(sp), dimension(2) :: bcond_nd                   ! boundary conditions of number of days for smoothing
 
-real(sp), dimension(3*31) :: tmin_sm              ! smoothed daily values of min temperature
-real(sp), dimension(3*31) :: tmax_sm               ! smoothed daily values of max temperature
-real(sp), dimension(3*31) :: cld_sm               ! smoothed daily values of cloudiness
-real(sp), dimension(3*31) :: wnd_sm                ! smoothed daily values of wind speed
+real(sp), dimension(31*(1+2*w)) :: tmin_sm              ! smoothed daily values of min temperature
+real(sp), dimension(31*(1+2*w)) :: tmax_sm               ! smoothed daily values of max temperature
+real(sp), dimension(31*(1+2*w)) :: cld_sm               ! smoothed daily values of cloudiness
+real(sp), dimension(31*(1+2*w)) :: wnd_sm                ! smoothed daily values of wind speed
 
 
 ! For weathergen do loop 
@@ -128,7 +133,11 @@ type(metvars_in)  :: met_in
 type(metvars_out) :: met_out
 
 type(metvars_out), dimension(31) :: month_met
+
 !-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+call init_weathergen()
+
 !----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ! INPUT: Read dimension IDs and lengths of dimensions
 
@@ -197,11 +206,31 @@ call parsecoords(coordstring,bounds)
 
 call calcpixels(lon,lat,bounds,xpos,ypos,srtx,srty,cntx,cnty)
 
-! write(so,*)'xpos: ',xpos                        ! Print start position of longitude
-! write(so,*)'ypos: ',ypos                        ! Print start position of latitude
+!write(so,*)'xpos: ',xpos                        ! Print start position of longitude
+!write(so,*)'ypos: ',ypos                        ! Print start position of latitude
 ! write(so,*)'cntx, cnty: ',cntx,cnty                    ! Print counts of x and y cells  
 
 allocate(var_in(cntx,cnty,tlen))                    ! Allocate space in input array 'var_in' (x-range, y-range and temporal range)
+
+deallocate(lon)
+deallocate(lat)
+
+! reallocate coordinate variables to only hold the selected subset of the grid and get the data
+
+allocate(lon(cntx))
+allocate(lat(cnty))
+
+ncstat = nf90_inq_varid(ifid,"lon",varid)                ! Get variable ID for longitude
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+  
+ncstat = nf90_get_var(ifid,varid,lon,start=[srtx],count=[cntx])                  ! Get variable values for longitude
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_inq_varid(ifid,"lat",varid)                ! Get variable ID for latitude
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)      
+
+ncstat = nf90_get_var(ifid,varid,lat,start=[srty],count=[cnty])                  ! Get variable values for latitude
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 
 !---------------------------------------------------------------------
@@ -438,107 +467,85 @@ end do
 i = 1                                    ! Two placeholders i,j 
 j = 1                          
 
+! initialize the random number generator for this gridcell so the stream of random numbers is always the same
+
+call ran_seed(geohash(lon(i),lat(j)),met_in%rndst)
+
+
+
+! FINAL OUTPUT WRITE STATEMENT - HEADER:
+
+write(*,*)'Year, Month, Day, ',& 
+              'mtmin, mtmax, mtmean, mcloud, mwind, mprecip,',&
+              'sm_tmin, sm_tmax, sm_cloud_fr, sm_wind, ',&
+              'daily_tmin, daily_tmax, daily_cloud_fr, daily_wind, daily_precip'
 
 ! SMOOTHING DO LOOP: 
 
-do t = 1,12    !tlen                          ! For very time step in tlen
+! write(*,*)'start init loop'
 
-  if (t == 1) then                              ! If t is the first time step (first month), use the current month's values for the preceding month
+! initialize the smoothing buffer variables with all values from the first month
+
+mtminbuf = mtmin(i,j,1)  !this copies the first value across all of those in the buffer
+mtmaxbuf = mtmax(i,j,1)  !this copies the first value across all of those in the buffer
+ndbuf    = nd(1)  !this copies the first value across all of those in the buffer
+cldbuf   = cld(i,j,1)  !this copies the first value across all of those in the buffer
+wndbuf   = wnd(i,j,1)  !this copies the first value across all of those in the buffer
+
+! look ahead the filter width worth of months and preinitialize the buffers
+
+do s = 1,w
+
+  mtminbuf = eoshift(mtminbuf,1,mtmin(i,j,t+s))
+  mtmaxbuf = eoshift(mtmaxbuf,1,mtmax(i,j,t+s))
+  ndbuf    = eoshift(ndbuf,1,nd(t+s))
+  cldbuf   = eoshift(cldbuf,1,cld(i,j,t+s))
+  wndbuf   = eoshift(wndbuf,1,wnd(i,j,t+s))
+
+end do
+
+! start time loop
+
+! write(*,*)'start time loop'
+
+
+
+
+do yr = 1,1   !nyrs
+  do m = 1,12
+
+    t = m + 12 * (yr - 1)
+
+
+    bcond_tmin = [mtminbuf(-w),mtminbuf(w)]    ! Set boundary conditions for variables 
+    bcond_tmax = [mtmaxbuf(-w),mtmaxbuf(w)]    ! Set boundary conditions for variables 
+    bcond_nd   = [ndbuf(-w),ndbuf(w)]                                      ! Set boundary conditions for variables 
+    bcond_cld  = [cldbuf(-w),cldbuf(w)]                                      ! Set boundary conditions for variables 
+    bcond_wnd  = [wndbuf(-w),wndbuf(w)]                                      ! Set boundary conditions for variables 
   
-    mtmin3m(-1) = mtmin(i,j,t)                        ! Preceding month gets current months's values
-    mtmin3m(0)  = mtmin(i,j,t)  
-    mtmin3m(1)  = mtmin(i,j,t+1)
-
-    mtmax3m(-1) = mtmax(i,j,t)
-    mtmax3m(0)  = mtmax(i,j,t)
-    mtmax3m(1)  = mtmax(i,j,t+1)
-
-    nd3m(-1) = nd(t)
-    nd3m(0)  = nd(t)
-    nd3m(1)  = nd(t+1)
-
-    cld3m(-1) = cld(i,j,t)
-    cld3m(0)  = cld(i,j,t)
-    cld3m(1)  = cld(i,j,t+1)
-
-    wnd3m(-1) = wnd(i,j,t)
-    wnd3m(0)  = wnd(i,j,t)
-    wnd3m(1)  = wnd(i,j,t+1)
+!   write(*,*)'ndmonth buffer',ndbuf
   
-  else if (t == tlen) then                            ! If it's the last time step (last month), use the current month's values for the month after the current one
-  
-    mtmin3m(-1) = mtmin(i,j,t-1)      
-    mtmin3m(0)  = mtmin(i,j,t)
-    mtmin3m(1)  = mtmin(i,j,t)                        ! Month after current one (not in the time frame anymore) gets current month's values
-    mtmax3m(-1) = mtmax(i,j,t-1)
-    mtmax3m(0)  = mtmax(i,j,t)
-    mtmax3m(1)  = mtmax(i,j,t)
-    nd3m(-1) = nd(t-1)
-    nd3m(0)  = nd(t)
-    nd3m(1)  = nd(t)
-    cld3m(-1) = cld(i,j,t-1)
-    cld3m(0)  = cld(i,j,t)
-    cld3m(1)  = cld(i,j,t)
-    wnd3m(-1) = wnd(i,j,t-1)
-    wnd3m(0)  = wnd(i,j,t)
-    wnd3m(1)  = wnd(i,j,t)
-    
-  else                                    ! All other cases: time steps include month before current month, current month, 
-                                        ! and month after the current month
-    mtmin3m(-1) = mtmin(i,j,t-1)
-    mtmin3m(0)  = mtmin(i,j,t)
-    mtmin3m(1)  = mtmin(i,j,t+1)
-
-    mtmax3m(-1) = mtmax(i,j,t-1)
-    mtmax3m(0)  = mtmax(i,j,t)
-    mtmax3m(1)  = mtmax(i,j,t+1)
-
-    nd3m(-1) = nd(t-1)
-    nd3m(0)  = nd(t)
-    nd3m(1)  = nd(t+1)
-
-    cld3m(-1) = cld(i,j,t-1)
-    cld3m(0)  = cld(i,j,t)
-    cld3m(1)  = cld(i,j,t+1)
-
-    wnd3m(-1) = wnd(i,j,t-1)
-    wnd3m(0)  = wnd(i,j,t)
-    wnd3m(1)  = wnd(i,j,t+1)
-    
-  end if
-
-  bcond_tmin(1) = mtmin3m(-1)                                      ! Set boundary conditions for variables 
-  bcond_tmin(2) = mtmin3m(1)
-  bcond_tmax(1) = mtmax3m(-1)
-  bcond_tmax(2) = mtmax3m(1)
-  bcond_nd(1) = nd3m(-1)
-  bcond_nd(2) = nd3m(1)
-  bcond_cld(1) = cld3m(-1)
-  bcond_cld(2) = cld3m(1)
-  bcond_wnd(1) = wnd3m(-1)
-  bcond_wnd(2) = wnd3m(1)
-
-  
-!  write(*,*)'mtmax',mtmax3m
-  
-  call rmsmooth(mtmin3m,nd3m,bcond_tmin,tmin_sm)                  ! Smooth minimum variables
-  call rmsmooth(mtmax3m,nd3m,bcond_tmax,tmax_sm)
-  call rmsmooth(cld3m,nd3m,bcond_cld,cld_sm)
-  call rmsmooth(wnd3m,nd3m,bcond_wnd,wnd_sm)
+  call rmsmooth(mtminbuf,ndbuf,bcond_tmin,tmin_sm(1:sum(ndbuf)))                  ! Smooth minimum variables
+  call rmsmooth(mtmaxbuf,ndbuf,bcond_tmax,tmax_sm(1:sum(ndbuf)))
+  call rmsmooth(cldbuf,ndbuf,bcond_cld,cld_sm(1:sum(ndbuf)))
+  call rmsmooth(wndbuf,ndbuf,bcond_wnd,wnd_sm(1:sum(ndbuf)))
 
 
 ! write(*,*)'Smoothed data: Day,  minimum temp (C), maximum temp (C), cloud fraction, wind speed (m/s)'
 
-d0 = nd3m(-1)+1
-d1 = sum(nd3m(-1:0))
+d0 = sum(ndbuf(-w:-1))+1
+d1 = d0 + ndbuf(0) - 1 
 
-  
-  do d = d0,d1
-   
-!     write(*,'(1i3,4f9.2)')d,tmin_sm(d),tmax_sm(d),cld_sm(d),wnd_sm(d)
-!     write(*,*)d,tmin_sm(d),tmax_sm(d),cld_sm(d),wnd_sm(d)
-  
-  end do
+!   s = 1
+!   do d = d0,d1
+!    
+!      write(*,'(2i3,4f9.2)')s,d,tmin_sm(d),tmax_sm(d),cld_sm(d),wnd_sm(d)
+!  
+!      s = s + 1
+!  
+!   end do
+! 
+! read(*,*)
 
 !---------------------------------------------------------------------
 ! Long loop calling WEATHERGEN
@@ -555,11 +562,13 @@ i_count = 1
 
 
 
-! write(0,*)'day loop bounds',d0,d1
 
 do    ! quality control loop
-
+! do y = 1,1                                      ! Do, for each year
+! do m = 1,3 
 do d = d0,d1  ! day loop
+
+! write(*,*)yr,m,d0,d,d1,ndbuf
    
   met_in%prec = pre(i,j,t)
   met_in%wetd = real(wet(i,j,t))
@@ -579,9 +588,21 @@ do d = d0,d1  ! day loop
           
           call weathergen(met_in,met_out)
           
-          write(*,*)t,d-d0+1,mtmin3m(0),met_in%tmin,met_out%tmin
           
-
+!           	    write(so,'(2i5, 8f9.2)')y+startyr-1,m,&                        ! print the attribute values for (lat, long, time step)
+! 			    mtmin(1,1,i),tmp(1,1,i),mtmax(1,1,i),& 
+! 			    pre(1,1,i), wet(1,1,i), cld(1,1,i)/100, wnd(1,1,i), wetf(1,1,i)
+          
+                   
+          
+          ! FINAL OUTPUT WRITE STATEMENT
+              write(*,'(3i5, 15f9.2)')yr+startyr-1, m, d-d0+1,&
+              mtmin(1,1,m), mtmax(1,1,m), tmp(1,1,m), cld(1,1,m)/100, wnd(1,1,m), pre(1,1,m), &
+              met_in%tmin, met_in%tmax, met_in%cldf, met_in%wind,&
+              met_out%tmin, met_out%tmax, met_out%cldf, met_out%wind, met_out%prec
+          
+!           end do 
+!           end do 
           met_in%rndst = met_out%rndst
 !          month_met(d) = met_out
 
@@ -626,7 +647,11 @@ do d = d0,d1  ! day loop
 
       i_count = i_count + 1
 
+
+
+
 end do  ! end of quality control loop
+
 
 !---------------------------------------------------------------------
 ! DATA CHECK W/ OUTPUT
@@ -635,7 +660,15 @@ end do  ! end of quality control loop
 
 ! read(*,*)
 
-end do                                    ! End smoothing loop
+    mtminbuf = eoshift(mtminbuf,1,mtmin(i,j,t+w+1))
+    mtmaxbuf = eoshift(mtmaxbuf,1,mtmax(i,j,t+w+1))
+    ndbuf    = eoshift(ndbuf,1,nd(t+w+1))
+    cldbuf   = eoshift(cldbuf,1,cld(i,j,t+w+1))
+    wndbuf   = eoshift(wndbuf,1,wnd(i,j,t+w+1))
+
+
+end do                                    ! end month loop
+end do  ! end year loop
 
 
 !---------------------------------------------------------------------
@@ -644,7 +677,7 @@ end do                                    ! End smoothing loop
 ncstat = nf90_close(ifid)
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-
+!---------------------------------------------------------------------
 
 
 !#########################################

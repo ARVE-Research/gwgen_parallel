@@ -21,6 +21,7 @@ module weathergenmod
     public  :: metvars_out
     public  :: rmsmooth
     public  :: weathergen
+    public  :: init_weathergen
 
     private :: daymetvars
     private :: meansd
@@ -271,12 +272,14 @@ module weathergenmod
             ! depreceated parameters
             tmin_sd_w1, tmin_sd_w2, tmax_sd_w1, tmax_sd_w2, wind_sd_w1, wind_sd_w2, &
             tmin_sd_d1, tmin_sd_d2, tmax_sd_d1, tmax_sd_d2,  wind_sd_d1, wind_sd_d2
+
         if (.not. present(f_unit)) then
             open(f_unit2, file='weathergen.nml', status='old')
         else
             rewind f_unit
             f_unit2 = f_unit
         endif
+
         read(f_unit2, weathergen_ctl)
         if (.not. present(f_unit)) close(f_unit2)
         ! calculate cloud parameters
@@ -410,7 +413,7 @@ module weathergenmod
         tmn   = met_in%tmin
         tmx   = met_in%tmax
         cld   = met_in%cldf
-        wnd  = met_in%wind
+        wnd   = met_in%wind
         rndst = met_in%rndst
         pday  = met_in%pday
         resid = met_in%resid
@@ -425,6 +428,7 @@ module weathergenmod
         tmax_sd => dmetvars%tmax_sd
         cldf_sd => dmetvars%cldf_sd
         wind_sd => dmetvars%wind_sd
+
 
         !---------------------------
         !1) Precipitation occurrence
@@ -478,10 +482,10 @@ module weathergenmod
                 !else
                 !  g_scale = pbar
                 !end if
-
+                
                 g_scale = g_scale_coeff * pbar
                 g_shape = pbar / g_scale
-
+                
                 if (thresh_pctl) then
                     thresh2use = gamma_cdf_inv(real(thresh, kind=8), real(g_shape, kind=8), real(g_scale, kind=8))
                 else
@@ -537,7 +541,7 @@ module weathergenmod
 
         do i = 1,4
             call ran_normal(rndst,unorm(i))
-        end do
+        end do 
 
         !calculate today's residuals for weather variables
 
@@ -617,6 +621,8 @@ module weathergenmod
         met_out%wind_mn = wind_mn
         met_out%wind_sd = wind_sd
         met_out%unorm = unorm
+
+
 
     end subroutine weathergen
 

@@ -20,8 +20,8 @@ module geohashmod
 
         implicit none
 
-        real(sp), intent(in) :: lon ! the longitude
-        real(sp), intent(in) :: lat ! the latitude
+        real(dp), intent(in) :: lon ! the longitude
+        real(dp), intent(in) :: lat ! the latitude
 
         real(sp),    parameter :: scale  = 120.d0      !scale factor for geohash, the larger the number the more unique values
         real(sp),    parameter :: offset =   0.5d0     !offset to calculate pixel number assuming gridcell center coordinates are given
