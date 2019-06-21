@@ -457,7 +457,7 @@ module weathergenmod
             ! -----
             ! determine the precipitation state of the current day using the Markov chain approach
             u = ranur(rndst)
-
+            
             if (u <= pwet) then  !today is a rain day
 
                 pday = eoshift(pday,-1,.true.)
@@ -467,6 +467,10 @@ module weathergenmod
                 pday = eoshift(pday,-1,.false.)
 
             end if
+
+!             write(*,*)'weathergen',pwet,u,pday
+
+
 
             !---------------------------
             !2) precipitation amount

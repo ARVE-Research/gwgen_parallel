@@ -32,8 +32,6 @@ integer :: ifid                        ! Input file ID
 integer :: dimid                       ! Dimension ID
 integer :: varid                       ! Variable ID
 
-integer, parameter :: n_curr = 0       ! current month
-
 ! Allocatable arrays for longitude and latitude
 
 real(dp), allocatable, dimension(:) :: lon          
@@ -79,11 +77,12 @@ integer(i2) :: missing_value                ! Missing values in the input file
 
 ! Elements to calculate current year and amount of days in current month
 
-integer :: n,i_count
+integer :: n,i_count,outd
 integer :: i,j,t,d,y,m,s
 integer :: nyrs                        ! Number of years (tlen/12)
 integer :: d0
 integer :: d1
+integer :: calyr
 
 integer, parameter :: nmos = 12                ! Number of months
 
@@ -122,17 +121,20 @@ real(sp), dimension(31*(1+2*w)) :: wnd_sm                ! smoothed daily values
 
 integer  :: mwetd_sim                           ! monthly simulation of wet days  
 integer  :: pdaydiff
-integer  :: pdaydiff1                           
+integer  :: pdaydiff1                       
 
 real(sp) :: mprec_sim                            ! monthly simulation of precipitation
 real(sp) :: precdiff
 real(sp) :: precdiff1
 real(sp) :: prec_t
+integer, parameter  :: pday_t = 3                          
 
 type(metvars_in)  :: met_in
 type(metvars_out) :: met_out
 
 type(metvars_out), dimension(31) :: month_met
+
+
 
 !-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -436,8 +438,22 @@ t = 1
 ! use output of step above to calculate fraction of wet days a month
 do j = 1,cnty                                      ! Do, for every year j in amount of years
   do i = 1,cntx                                      ! and for every month 
-    wetf(i,j,:) = wet(i,j,:) / real(nd)                          ! calculate fraction of wet days and save it in 'wetf"
+  
+    ! enforce reasonable values of prec and wetdays
 
+    where (pre(i,j,:) >= 0.1)
+  
+      wet(i,j,:) = max(wet(i,j,:),1.)      ! enforce at least one wet day if there is any mesurable precip
+      wet(i,j,:) = min(wet(i,j,:),10. * pre(i,j,:))
+      wetf(i,j,:) = wet(i,j,:) / real(nd)  ! calculate fraction of wet days and save it in 'wetf"
+
+    elsewhere
+
+      pre(i,j,:) = 0.   ! zero out precip if it is less than 0.1 mm per month
+      wet(i,j,:) = 0.
+      wetf(i,j,:) = 0.
+ 
+    end where
   end do
 end do
 
@@ -447,24 +463,24 @@ end do
 
 !write(so,*)'Year, month, tmin (C), tmean (C), tmax (C),precip (mm), wet days, cloud cover fraction, wind speed (m/s),fraction wet days:'                            
 
-i = 1
-do y = 1,2                                      ! Do, for each year
-  do m = 1,nmos                                      ! and within each year, for each month
-    
-!     write(so,'(2i5, 8f9.2)')y+startyr-1,m,&                        ! print the attribute values for (lat, long, time step)
-!     mtmin(1,1,i),tmp(1,1,i),mtmax(1,1,i),& 
-!     pre(1,1,i), wet(1,1,i), cld(1,1,i)/100, wnd(1,1,i), wetf(1,1,i)
-    
-    i = i + 1                                      ! then add one to the time step
-
-  end do
-end do
+! i = 1
+! do y = 1,2                                      ! Do, for each year
+!   do m = 1,nmos                                      ! and within each year, for each month
+!     
+! !     write(so,'(2i5, 8f9.2)')y+startyr-1,m,&                        ! print the attribute values for (lat, long, time step)
+! !     mtmin(1,1,i),tmp(1,1,i),mtmax(1,1,i),& 
+! !     pre(1,1,i), wet(1,1,i), cld(1,1,i)/100, wnd(1,1,i), wetf(1,1,i)
+!     
+!     i = i + 1                                      ! then add one to the time step
+! 
+!   end do
+! end do
 
 
 !---------------------------------------------------------------------
 ! PREPARE data for SMOOTHING
 
-i = 1                                    ! Two placeholders i,j 
+i = 1                                     
 j = 1                          
 
 ! initialize the random number generator for this gridcell so the stream of random numbers is always the same
@@ -510,8 +526,11 @@ end do
 
 
 
+met_out%pday(1) = .false.
+met_out%pday(2) = .false.
+met_out%resid = 0.
 
-do yr = 1,1   !nyrs
+do yr = 1,nyrs-1
   do m = 1,12
 
     t = m + 12 * (yr - 1)
@@ -539,7 +558,7 @@ d1 = d0 + ndbuf(0) - 1
 !   s = 1
 !   do d = d0,d1
 !    
-!      write(*,'(2i3,4f9.2)')s,d,tmin_sm(d),tmax_sm(d),cld_sm(d),wnd_sm(d)
+!      write(*,'(2i5,4f9.2)')s,d,tmin_sm(d),tmax_sm(d),cld_sm(d),wnd_sm(d)
 !  
 !      s = s + 1
 !  
@@ -552,11 +571,8 @@ d1 = d0 + ndbuf(0) - 1
 
 ! save the current state of the residuals and pday
 
-met_out%pday(1) = .false.
-met_out%pday(2) = .false.
-met_out%resid = 0.
 
-prec_t = max(0.5,0.05 * pre(i,j,n_curr))                                   !set quality threshold for preciptation amount
+prec_t = max(0.5,0.05 * pre(i,j,t))                                   !set quality threshold for preciptation amount
 
 i_count = 1
 
@@ -566,16 +582,23 @@ i_count = 1
 do    ! quality control loop
 ! do y = 1,1                                      ! Do, for each year
 ! do m = 1,3 
-do d = d0,d1  ! day loop
-
-! write(*,*)yr,m,d0,d,d1,ndbuf
-   
-  met_in%prec = pre(i,j,t)
-  met_in%wetd = real(wet(i,j,t))
-  met_in%wetf = real(wetf(i,j,t))                                     ! OR just use real(wetf(n_curr))
 
   mwetd_sim = 0
   mprec_sim = 0.
+
+outd = 1
+do d = d0,d1  ! day loop
+
+!      write(*,'(2i5,4f9.2)')outd,d,tmin_sm(d),tmax_sm(d),cld_sm(d),wnd_sm(d)
+
+
+! write(*,*)yr,m,d0,d,d1,ndbuf
+
+  met_in%prec = pre(i,j,t)
+  met_in%wetd = wet(i,j,t)
+  met_in%wetf = wetf(i,j,t)                                     ! OR just use real(wetf(t))
+  
+
   
       !start day loop
 
@@ -593,41 +616,43 @@ do d = d0,d1  ! day loop
 ! 			    mtmin(1,1,i),tmp(1,1,i),mtmax(1,1,i),& 
 ! 			    pre(1,1,i), wet(1,1,i), cld(1,1,i)/100, wnd(1,1,i), wetf(1,1,i)
           
-                   
+
           
-          ! FINAL OUTPUT WRITE STATEMENT
-              write(*,'(3i5, 15f9.2)')yr+startyr-1, m, d-d0+1,&
-              mtmin(1,1,m), mtmax(1,1,m), tmp(1,1,m), cld(1,1,m)/100, wnd(1,1,m), pre(1,1,m), &
-              met_in%tmin, met_in%tmax, met_in%cldf, met_in%wind,&
-              met_out%tmin, met_out%tmax, met_out%cldf, met_out%wind, met_out%prec
-          
-!           end do 
-!           end do 
+
           met_in%rndst = met_out%rndst
-!          month_met(d) = met_out
+          month_met(outd) = met_out    ! save this day into a month holder
 
           if (met_out%prec > 0.) then
+          
+!               write(*,*)met_out%prec,mprec_sim,mwetd_sim
+              
               mwetd_sim = mwetd_sim + 1
               mprec_sim = mprec_sim + met_out%prec
               
           end if
           
       !end of month
+!       write(*,'(2i5,4f9.2)')outd,d,tmin_sm(d),tmax_sm(d),cld_sm(d),wnd_sm(d)
+
+      outd = outd + 1
+
   end do  ! day loop            
-  
+
   ! quality control checks                                               
 
-      if (pre(i,j,n_curr) == 0.) then
+      if (pre(i,j,t) == 0.) then
           pdaydiff = 0
           precdiff = 0.
           exit
 
       else if (i_count >= 2) then                                   !enforce at least two times over the month to get initial values ok
-          pdaydiff = abs(wet(i,j,n_curr) - mwetd_sim)
-          precdiff = abs(pre(i,j,n_curr) - mprec_sim)
+          pdaydiff = abs(wet(i,j,t) - mwetd_sim)
+          precdiff = abs(pre(i,j,t) - mprec_sim)
+          
+!           write(*,*)'quality',i_count,pre(i,j,t),mprec_sim,wet(i,j,t),mwetd_sim,wetf(i,j,t)
 
           ! restrict simulated total monthly precip to +/-5% or 0.5 mm of observed value
-          if (pdaydiff <= 1 .and. precdiff <= prec_t) then
+          if (pdaydiff <= pday_t .and. precdiff <= prec_t) then
               exit
 
           else if (pdaydiff < pdaydiff1 .and. precdiff < precdiff1) then
@@ -635,15 +660,15 @@ do d = d0,d1  ! day loop
               pdaydiff1 = pdaydiff
               precdiff1 = precdiff
 
-          else if (i_count > 10000) then
-              write (*,*) "No good solution found after 10000 iterations."
+          else if (i_count > 1000) then
+              write (*,*) "No good solution found after 1000 iterations."
               stop 1
 
           end if
 
       end if
       
-!       write(0,*)'failed quality check, re-running this month'
+!        write(0,*)'failed quality check',i_count,' re-running this month'
 
       i_count = i_count + 1
 
@@ -651,6 +676,9 @@ do d = d0,d1  ! day loop
 
 
 end do  ! end of quality control loop
+
+! write(*,*)'month completed'
+
 
 
 !---------------------------------------------------------------------
@@ -667,10 +695,27 @@ end do  ! end of quality control loop
     wndbuf   = eoshift(wndbuf,1,wnd(i,j,t+w+1))
 
 
+
+           calyr = yr+startyr-1
+           if (calyr > 1874 .and. calyr <= 1875) then
+          
+          do outd = 1,ndaymonth(calyr,m)
+          
+           ! FINAL OUTPUT WRITE STATEMENT
+              write(*,'(3i5, 15f9.2)')calyr, m, outd,&
+              mtmin(1,1,t), mtmax(1,1,t), tmp(1,1,t), cld(1,1,t)/100, wnd(1,1,t), pre(1,1,t), &
+              met_in%tmin, met_in%tmax, met_in%cldf, met_in%wind,&
+              month_met(outd)%tmin, month_met(outd)%tmax, month_met(outd)%cldf, month_met(outd)%wind, month_met(outd)%prec
+
+           end do
+
+           end if
+
+
 end do                                    ! end month loop
 end do  ! end year loop
 
-
+! d-d0+1
 !---------------------------------------------------------------------
 ! CLOSE INPUT FILE
 
