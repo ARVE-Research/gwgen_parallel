@@ -496,9 +496,8 @@ write(*,*)'Year, Month, Day, ',&
               'sm_tmin, sm_tmax, sm_cloud_fr, sm_wind, ',&
               'daily_tmin, daily_tmax, daily_cloud_fr, daily_wind, daily_precip'
 
+!---------------------------------------------------------------------
 ! SMOOTHING DO LOOP: 
-
-! write(*,*)'start init loop'
 
 ! initialize the smoothing buffer variables with all values from the first month
 
@@ -521,9 +520,6 @@ do s = 1,w
 end do
 
 ! start time loop
-
-! write(*,*)'start time loop'
-
 
 
 met_out%pday(1) = .false.
@@ -577,8 +573,6 @@ prec_t = max(0.5,0.05 * pre(i,j,t))                                   !set quali
 i_count = 1
 
 
-
-
 do    ! quality control loop
 ! do y = 1,1                                      ! Do, for each year
 ! do m = 1,3 
@@ -588,8 +582,6 @@ do    ! quality control loop
 
 outd = 1
 do d = d0,d1  ! day loop
-
-!      write(*,'(2i5,4f9.2)')outd,d,tmin_sm(d),tmax_sm(d),cld_sm(d),wnd_sm(d)
 
 
 ! write(*,*)yr,m,d0,d,d1,ndbuf
@@ -612,12 +604,6 @@ do d = d0,d1  ! day loop
           call weathergen(met_in,met_out)
           
           
-!           	    write(so,'(2i5, 8f9.2)')y+startyr-1,m,&                        ! print the attribute values for (lat, long, time step)
-! 			    mtmin(1,1,i),tmp(1,1,i),mtmax(1,1,i),& 
-! 			    pre(1,1,i), wet(1,1,i), cld(1,1,i)/100, wnd(1,1,i), wetf(1,1,i)
-          
-
-          
 
           met_in%rndst = met_out%rndst
           month_met(outd) = met_out    ! save this day into a month holder
@@ -632,7 +618,7 @@ do d = d0,d1  ! day loop
           end if
           
       !end of month
-!       write(*,'(2i5,4f9.2)')outd,d,tmin_sm(d),tmax_sm(d),cld_sm(d),wnd_sm(d)
+      
 
       outd = outd + 1
 
@@ -648,8 +634,7 @@ do d = d0,d1  ! day loop
       else if (i_count >= 2) then                                   !enforce at least two times over the month to get initial values ok
           pdaydiff = abs(wet(i,j,t) - mwetd_sim)
           precdiff = abs(pre(i,j,t) - mprec_sim)
-          
-!           write(*,*)'quality',i_count,pre(i,j,t),mprec_sim,wet(i,j,t),mwetd_sim,wetf(i,j,t)
+        
 
           ! restrict simulated total monthly precip to +/-5% or 0.5 mm of observed value
           if (pdaydiff <= pday_t .and. precdiff <= prec_t) then
@@ -668,25 +653,15 @@ do d = d0,d1  ! day loop
 
       end if
       
-!        write(0,*)'failed quality check',i_count,' re-running this month'
-
+      
       i_count = i_count + 1
-
-
 
 
 end do  ! end of quality control loop
 
-! write(*,*)'month completed'
-
-
 
 !---------------------------------------------------------------------
 ! DATA CHECK W/ OUTPUT
-
-! write(*,*)'passed quality check, moving on to next month'
-
-! read(*,*)
 
     mtminbuf = eoshift(mtminbuf,1,mtmin(i,j,t+w+1))
     mtmaxbuf = eoshift(mtmaxbuf,1,mtmax(i,j,t+w+1))
@@ -715,7 +690,6 @@ end do  ! end of quality control loop
 end do                                    ! end month loop
 end do  ! end year loop
 
-! d-d0+1
 !---------------------------------------------------------------------
 ! CLOSE INPUT FILE
 
