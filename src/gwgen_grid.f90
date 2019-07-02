@@ -672,7 +672,7 @@ end do  ! end of quality control loop
 
 
            calyr = yr+startyr-1
-           if (calyr > 1875 .and. calyr <= 1876) then
+           if (calyr > 1874 .and. calyr <= 1875) then
           
           
           do outd = 1,ndaymonth(calyr,m)
@@ -680,7 +680,7 @@ end do  ! end of quality control loop
            ! FINAL OUTPUT WRITE STATEMENT
               write(*,'(3i5, 15f9.2)')calyr, m, outd,&
               mtmin(1,1,t), mtmax(1,1,t), tmp(1,1,t), cld(1,1,t)/100, wnd(1,1,t), pre(1,1,t), &
-              tmin_sm(d0+outd-1), tmax_sm(d0+outd-1), met_in%cldf, met_in%wind,&
+              tmin_sm(d0+outd-1), tmax_sm(d0+outd-1), (cld_sm(d0+outd-1)*0.01), wnd_sm(d0+outd-1), &                               ! met_in%cldf, met_in%wind,&
               month_met(outd)%tmin, month_met(outd)%tmax, month_met(outd)%cldf, month_met(outd)%wind, month_met(outd)%prec
 
            end do
@@ -697,7 +697,22 @@ end do  ! end year loop
 ncstat = nf90_close(ifid)
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
+
+
+
+
+
+
+
+
+
 !---------------------------------------------------------------------
+
+
+
+
+
+
 
 
 !#########################################
