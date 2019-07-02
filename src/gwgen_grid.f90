@@ -77,8 +77,8 @@ integer(i2) :: missing_value                ! Missing values in the input file
 
 ! Elements to calculate current year and amount of days in current month
 
-integer :: n,i_count,outd
-integer :: i,j,t,d,y,m,s
+integer :: i_count,outd
+integer :: i,j,t,d,m,s
 integer :: nyrs                        ! Number of years (tlen/12)
 integer :: d0
 integer :: d1
@@ -492,7 +492,7 @@ call ran_seed(geohash(lon(i),lat(j)),met_in%rndst)
 ! FINAL OUTPUT WRITE STATEMENT - HEADER:
 
 write(*,*)'Year, Month, Day, ',& 
-              'mtmin, mtmax, mtmean, mcloud, mwind, mprecip,',&
+              'mtmin, mtmax, mtmean, mcloud, mwind, mprecip, ',&
               'sm_tmin, sm_tmax, sm_cloud_fr, sm_wind, ',&
               'daily_tmin, daily_tmax, daily_cloud_fr, daily_wind, daily_precip'
 
@@ -538,7 +538,7 @@ do yr = 1,nyrs-1
     bcond_cld  = [cldbuf(-w),cldbuf(w)]                                      ! Set boundary conditions for variables 
     bcond_wnd  = [wndbuf(-w),wndbuf(w)]                                      ! Set boundary conditions for variables 
   
-!   write(*,*)'ndmonth buffer',ndbuf
+! write(*,*)'ndmonth buffer',ndbuf
   
   call rmsmooth(mtminbuf,ndbuf,bcond_tmin,tmin_sm(1:sum(ndbuf)))                  ! Smooth minimum variables
   call rmsmooth(mtmaxbuf,ndbuf,bcond_tmax,tmax_sm(1:sum(ndbuf)))
@@ -548,9 +548,9 @@ do yr = 1,nyrs-1
 
 ! write(*,*)'Smoothed data: Day,  minimum temp (C), maximum temp (C), cloud fraction, wind speed (m/s)'
 
-d0 = sum(ndbuf(-w:-1))+1
-d1 = d0 + ndbuf(0) - 1 
-
+ d0 = sum(ndbuf(-w:-1))+1
+ d1 = d0 + ndbuf(0) - 1 
+! 
 !   s = 1
 !   do d = d0,d1
 !    
@@ -581,16 +581,16 @@ do    ! quality control loop
   mprec_sim = 0.
 
 outd = 1
-do d = d0,d1  ! day loop
+
+  do d = d0,d1  ! day loop
 
 
-! write(*,*)yr,m,d0,d,d1,ndbuf
+  !write(*,*)yr,m,d0, d,d1,ndbuf
 
-  met_in%prec = pre(i,j,t)
-  met_in%wetd = wet(i,j,t)
-  met_in%wetf = wetf(i,j,t)                                     ! OR just use real(wetf(t))
+    met_in%prec = pre(i,j,t)
+    met_in%wetd = wet(i,j,t)
+    met_in%wetf = wetf(i,j,t)                                     ! OR just use real(wetf(t))
   
-
   
       !start day loop
 
@@ -610,7 +610,7 @@ do d = d0,d1  ! day loop
 
           if (met_out%prec > 0.) then
           
-!               write(*,*)met_out%prec,mprec_sim,mwetd_sim
+              !write(*,*)met_out%prec,mprec_sim,mwetd_sim
               
               mwetd_sim = mwetd_sim + 1
               mprec_sim = mprec_sim + met_out%prec
@@ -672,14 +672,15 @@ end do  ! end of quality control loop
 
 
            calyr = yr+startyr-1
-           if (calyr > 1874 .and. calyr <= 1875) then
+           if (calyr > 1875 .and. calyr <= 1876) then
+          
           
           do outd = 1,ndaymonth(calyr,m)
           
            ! FINAL OUTPUT WRITE STATEMENT
               write(*,'(3i5, 15f9.2)')calyr, m, outd,&
               mtmin(1,1,t), mtmax(1,1,t), tmp(1,1,t), cld(1,1,t)/100, wnd(1,1,t), pre(1,1,t), &
-              met_in%tmin, met_in%tmax, met_in%cldf, met_in%wind,&
+              tmin_sm(d0+outd-1), tmax_sm(d0+outd-1), met_in%cldf, met_in%wind,&
               month_met(outd)%tmin, month_met(outd)%tmax, month_met(outd)%cldf, month_met(outd)%wind, month_met(outd)%prec
 
            end do

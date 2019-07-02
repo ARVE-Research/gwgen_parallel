@@ -225,7 +225,7 @@ F90_LDFLAGS_netcdf = -L/usr/local/lib
 F90_LIBS_netcdf = -lnetcdff
 F90_MODULE_netcdfmod = -I /usr/local/include
 FC = gfortran
-FCFLAGS = -g -fbacktrace -ffpe-trap=invalid -Wall -pedantic -I /usr/local/include
+FCFLAGS = -g -O2 -I /usr/local/include
 FCFLAGS_f90 = 
 HAS_NC_CONFIG = yes
 INSTALL = /sw/bin/ginstall -c
