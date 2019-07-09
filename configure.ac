@@ -67,5 +67,58 @@ AX_F90_LIBRARY([netcdf], [libnetcdff*], [
 
 LDFLAGS="$LDFLAGS $F90_LIBS_netcdf"
 
+#-----------------------------------------------------------------------
+# set a debugging mode - apparently this is not good usage of autotools
+# but this is not production/distribution software and so being able to
+# easily switch on and off a debugging mode will be useful for students 
+
+test -z "$SED" && SED=sed
+
+AC_ARG_ENABLE([debug],
+  [AS_HELP_STRING([--enable-debug],
+                  [whether to include debug symbols (default is no)])],
+  [enable_debug=$enableval],
+  [enable_debug=no]
+)
+
+if test "x$enable_debug" = xyes; then
+
+  dnl strip optimization flags from FCFLAGS
+
+  changequote({,})
+  FCFLAGS=`echo "$FCFLAGS" | $SED -e 's/-O[0-9s]*//g'`
+
+  FCFLAGS=`echo "$FCFLAGS" | $SED -e 's/-g[0-9]*//g'`
+  changequote([,])
+  
+  if test "x$NETCDF_FC" = xifort; then
+    dnl debugging flags for ifort
+    
+    FCFLAGS="$FCFLAGS -debug -fpe0 -traceback -g -check -check noarg_temp_created -warn all"
+
+  elif test "x$NETCDF_FC" = xgfortran; then
+  
+    dnl debugging flags for gfortran
+
+    FCFLAGS="$FCFLAGS -ffree-line-length-none -finit-local-zero -fcheck=all -ffpe-trap=invalid,zero,overflow,underflow -g -fbacktrace -Wall -pedantic"
+
+  else 
+    dnl  generic debug flags
+
+    FCFLAGS="$FCFLAGS -g -O0"
+  fi
+  
+fi
+
+#-----------------------------------------------------------------------
+
+
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
+
+echo "summary of build options"
+echo "C compiler:             $NETCDF_CC"
+echo "Fortran compiler:       $NETCDF_FC"
+echo "Fortran compiler flags: $FCFLAGS"
+echo "Linker flags:           $LDFLAGS"
+

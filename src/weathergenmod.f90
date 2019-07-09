@@ -11,7 +11,7 @@ module weathergenmod
     ! 2011, Shawn Koppenhoefer, shawn.koppenhoefer@unil.ch
     ! 2016, Philipp Sommer, philipp.sommer@unil.ch
 
-    use parametersmod, only : sp,dp,i4
+    use parametersmod, only : sp,dp,i4,hp
     use randomdistmod, only : randomstate
 
 
@@ -93,16 +93,16 @@ module weathergenmod
 
     real(sp)                 :: gp_shape = 1.5 ! shape parameter for the Generalized Pareto distribution
 
-    real(sp), dimension(4,4) :: A = reshape((/ & ! A matrix used for cross correlation following Richardson_1984 equation (4)
+    real(sp), dimension(4,4) :: A = reshape([ & ! A matrix used for cross correlation following Richardson_1984 equation (4)
         0.913437, 0.032532,  -0.020658, 0.000573, &
         0.488761, 0.137304,  -0.07251,  -0.046058, &
         -0.00199, -0.04573,  0.591761,  0.026439, &
-        0.010905, -0.044171, -0.018568, 0.666672 /), (/4, 4/))
-    real(sp), dimension(4,4) :: B = reshape((/ & ! B matrix used for cross correlation following Richardson_1984 equation (4)
+        0.010905, -0.044171, -0.018568, 0.666672 ], [4, 4])
+    real(sp), dimension(4,4) :: B = reshape([ & ! B matrix used for cross correlation following Richardson_1984 equation (4)
         0.361854, 0.0,       0.0,      0.0, &
         0.11441,  0.802987,  0.0,      0.0, &
         0.144862, -0.060622, 0.782791, 0.0, &
-        0.080593, -0.015829, 0.066186, 0.736713/), (/4, 4/))
+        0.080593, -0.015829, 0.066186, 0.736713], [4, 4])
 
     ! transition probability correlations
     real(sp) :: p11_1 = 0.254877     ! intercept of p11 best line fit
@@ -118,33 +118,35 @@ module weathergenmod
     real(sp) :: tmin_w2 = 0.955787        ! slope of best line fit of tmin on wet days (see :f:subr:`meansd`)
     real(sp) :: tmin_d1 = -0.528308       ! intercept of best line fit of tmin on dry days (see :f:subr:`meansd`)
     real(sp) :: tmin_d2 = 1.020964        ! slope of best line fit of tmin on dry days (see :f:subr:`meansd`)
-    real(sp), dimension(3) :: tmin_sd_breaks = (/ -40., 0.0, 25. /)  ! breaks of tmin sd correlation
+
+    real(sp), dimension(4) :: tmin_sd_breaks = [ -40., 0.0, 25., hp]  ! breaks of tmin sd correlation
+
     ! polynomial coefficients for correlating tmin sd on wet days
     !   < -40       -40 - 0     0 - 25        > 25
-    real(sp), dimension(4, 6) :: tmin_sd_w = reshape((/ &
+    real(sp), dimension(4, 6) :: tmin_sd_w = reshape([ &
         9.72715668, 3.05498827, 3.21874237,  0.55707042, &
         0.1010504, -0.21158825, -0.04507634, 0.02443123, &
         0.0,       0.01374948,  0.02094482,  0.0, &
         0.0,       0.00140538,  -0.00264577, 0.0, &
         0.0,       3.686e-05,   9.818e-05,   0.0, &
         0.0,       3.2e-07,     -1.13e-06,   0.0  &
-        /), (/ 4, 6 /))
+        ], [ 4, 6 ])
     ! polynomial coefficients for correlating tmin sd on dry days
     !   < -40        -40 - 0      0 - 25       > 25
-    real(sp), dimension(4, 6) :: tmin_sd_d = reshape((/ &
+    real(sp), dimension(4, 6) :: tmin_sd_d = reshape([ &
         10.89900605, 3.56755661,  3.79411755,  -4.61943457, &
         0.12709893, -0.11544588,  0.03298697,  0.22605603, &
         0.0,         0.02824401, -0.01504554,  0.0, &
         0.0,         0.00195612,  0.00190346,  0.0, &
         0.0,         4.314e-05,  -0.00011362,  0.0, &
         0.0,         3.2e-07,     2.13e-06,    0.0 &
-        /), (/ 4, 6 /))
+        ], [ 4, 6 ])
 
-    ! DEPRECEATED tmin parameters
-    real(sp) :: tmin_sd_w1 = -9999.    ! DEPRECEATED. intercept of best line fit of std. dev. of tmin on wet days
-    real(sp) :: tmin_sd_w2 = -9999.    ! DEPRECEATED. slope of best line fit of std. dev. of tmin on wet days
-    real(sp) :: tmin_sd_d1 = -9999.    ! DEPRECEATED. intercept of best line fit of std. dev. of tmin on dry days
-    real(sp) :: tmin_sd_d2 = -9999.    ! DEPRECEATED. slope of best line fit of tmin on dry days
+    ! DEPRECATED tmin parameters
+    real(sp) :: tmin_sd_w1 = -9999.    ! DEPRECATED. intercept of best line fit of std. dev. of tmin on wet days
+    real(sp) :: tmin_sd_w2 = -9999.    ! DEPRECATED. slope of best line fit of std. dev. of tmin on wet days
+    real(sp) :: tmin_sd_d1 = -9999.    ! DEPRECATED. intercept of best line fit of std. dev. of tmin on dry days
+    real(sp) :: tmin_sd_d2 = -9999.    ! DEPRECATED. slope of best line fit of tmin on dry days
 
 
     ! maximum temperature regression results
@@ -152,32 +154,34 @@ module weathergenmod
     real(sp) :: tmax_w2 = 0.948669        ! slope of best line fit of tmax on wet days (see :f:subr:`meansd`)
     real(sp) :: tmax_d1 = 0.386508        ! intercept of best line fit of tmax on dry days (see :f:subr:`meansd`)
     real(sp) :: tmax_d2 = 1.0061          ! slope of best line fit of tmax on dry days (see :f:subr:`meansd`)
-    real(sp), dimension(3) :: tmax_sd_breaks = (/ -30., 0.0, 35. /)  ! polynomial coefficients for the breaks of tmax sd correlation
+
+    real(sp), dimension(4) :: tmax_sd_breaks = [ -30., 0.0, 35., hp ]  ! polynomial coefficients for the breaks of tmax sd correlation
+
     ! polynomial coefficients for correlating tmax sd on wet days
     !   < -30       -30 - 0       0 - 35       > 35
-    real(sp), dimension(4, 6) :: tmax_sd_w = reshape((/ &
+    real(sp), dimension(4, 6) :: tmax_sd_w = reshape([ &
         6.67200351,  3.86010858,  3.79193207,  5.55292835, &
         0.03643908, -0.21861197, -0.03126021, -0.09734715, &
         0.0,         0.00388465,  0.01611473,  0.0, &
         0.0,         0.00146174, -0.00120298,  0.0, &
         0.0,         6.059e-05,   2.912e-05,   0.0, &
         0.0,         7.4e-07,    -2.4e-07,     0.0 &
-        /), (/ 4, 6 /))
+        ], [ 4, 6 ])
     ! polynomial coefficients for correlating tmax sd on dry days
     !   < -30       -30 - 0       0 - 35       > 35
-    real(sp), dimension(4, 6) :: tmax_sd_d = reshape((/ &
+    real(sp), dimension(4, 6) :: tmax_sd_d = reshape([ &
         7.37455165,  4.61701866,  4.74550991,  3.25541815, &
         0.01535526, -0.33872824, -0.07609816, -0.02178605, &
         0.0,        -0.0187566,   0.01893058,  0.0, &
         0.0,        -0.0003185,  -0.00134943,  0.0, &
         0.0,         3.5e-06,     3.209e-05,   0.0, &
         0.0,         1.1e-07,    -2.5e-07,     0.0  &
-        /), (/ 4, 6 /))
-    ! DEPRECEATED tmax parameters
-    real(sp) :: tmax_sd_w1 = -9999.    ! DEPRECEATED. intercept of best line fit of std. dev. of tmax on wet days
-    real(sp) :: tmax_sd_w2 = -9999.    ! DEPRECEATED. slope of best line fit of std. dev. of tmax on wet days
-    real(sp) :: tmax_sd_d1 = -9999.    ! DEPRECEATED. intercept of best line fit of std. dev. of tmax on dry days
-    real(sp) :: tmax_sd_d2 = -9999.    ! DEPRECEATED. slope of best line fit of tmax on dry days
+        ], [ 4, 6 ])
+    ! DEPRECATED tmax parameters
+    real(sp) :: tmax_sd_w1 = -9999.    ! DEPRECATED. intercept of best line fit of std. dev. of tmax on wet days
+    real(sp) :: tmax_sd_w2 = -9999.    ! DEPRECATED. slope of best line fit of std. dev. of tmax on wet days
+    real(sp) :: tmax_sd_d1 = -9999.    ! DEPRECATED. intercept of best line fit of std. dev. of tmax on dry days
+    real(sp) :: tmax_sd_d2 = -9999.    ! DEPRECATED. slope of best line fit of tmax on dry days
 
 
     ! cloud regression results
@@ -191,15 +195,15 @@ module weathergenmod
     real(sp) :: wind_w2 = 1.092938      ! slope of best line fit of wind on wet days (see :f:subr:`meansd`)
     real(sp) :: wind_d1 = 0.0           ! intercept of best line fit of wind on dry days (see :f:subr:`meansd`)
     real(sp) :: wind_d2 = 0.945229      ! slope of best line fit of wind on wet days (see :f:subr:`meansd`)
-    real(sp), dimension(6) :: wind_sd_w = (/ &  ! polygon coefficients for wind standard deviation on wet days
-        0.0, 0.81840997, -0.12633931, 0.00933591, 0.0, 0.0 /)
-    real(sp), dimension(6) :: wind_sd_d = (/ &  ! polygon coefficients for wind standard deviation on dry days
-        0.0, 1.08596114, -0.24073323, 0.02216454, 0.0, 0.0 /)
-    ! DEPRECEATED wind parameters
-    real(sp) :: wind_sd_w1 = -9999.    ! DEPRECEATED. intercept of best line fit of std. dev. of wind on wet days
-    real(sp) :: wind_sd_w2 = -9999.    ! DEPRECEATED. slope of best line fit of std. dev. of wind on wet days
-    real(sp) :: wind_sd_d1 = -9999.    ! DEPRECEATED. intercept of best line fit of std. dev. wind on dry days
-    real(sp) :: wind_sd_d2 = -9999.    ! DEPRECEATED. slope of best line fit of std. dev. wind on dry days
+    real(sp), dimension(6) :: wind_sd_w = [ &  ! polygon coefficients for wind standard deviation on wet days
+        0.0, 0.81840997, -0.12633931, 0.00933591, 0.0, 0.0 ]
+    real(sp), dimension(6) :: wind_sd_d = [ &  ! polygon coefficients for wind standard deviation on dry days
+        0.0, 1.08596114, -0.24073323, 0.02216454, 0.0, 0.0 ]
+    ! DEPRECATED wind parameters
+    real(sp) :: wind_sd_w1 = -9999.    ! DEPRECATED. intercept of best line fit of std. dev. of wind on wet days
+    real(sp) :: wind_sd_w2 = -9999.    ! DEPRECATED. slope of best line fit of std. dev. of wind on wet days
+    real(sp) :: wind_sd_d1 = -9999.    ! DEPRECATED. intercept of best line fit of std. dev. wind on dry days
+    real(sp) :: wind_sd_d2 = -9999.    ! DEPRECATED. slope of best line fit of std. dev. wind on dry days
 
     ! wind bias correction (Note: Default is no correction)
     ! min. and max range for bias correction (1st and 99th percentile)
@@ -209,9 +213,9 @@ module weathergenmod
     real(sp) :: wind_intercept_bias_b = -1.3358916953022832  ! intercept in the exponent
     ! parameters of the slope - unorm best fit line
     ! coefficients for the bias correction of wind speed
-    real(sp), dimension(6) :: wind_bias_coeffs = (/ &
+    real(sp), dimension(6) :: wind_bias_coeffs = [ &
          0.995353879899162,   0.8507947091050573, 0.027799823700343333, &
-        -0.06710144300871658, 0.0,                0.0 /)
+        -0.06710144300871658, 0.0,                0.0 ]
     real(sp), dimension(6) :: wind_intercept_bias_coeffs = 0.0
     ! Alternative slope bias correction using a logistic function
     real(sp) :: wind_slope_bias_L = -9999.   ! maximum value of logistic function of wind bias correction
@@ -269,7 +273,7 @@ module weathergenmod
             wind_intercept_bias_a, wind_intercept_bias_b, &
             ! min. temperature bias correction (Note: Default is no correction)
             tmin_bias_coeffs, tmin_bias_min, tmin_bias_max, &
-            ! depreceated parameters
+            ! DEPRECATED parameters
             tmin_sd_w1, tmin_sd_w2, tmax_sd_w1, tmax_sd_w2, wind_sd_w1, wind_sd_w2, &
             tmin_sd_d1, tmin_sd_d2, tmax_sd_d1, tmax_sd_d2,  wind_sd_d1, wind_sd_d2
 
@@ -285,50 +289,50 @@ module weathergenmod
         ! calculate cloud parameters
         call calc_cloud_params
 
-        ! handle depreceated namelist parameters
+        ! handle DEPRECATED namelist parameters
         ! --------------------------------------
         ! tmin on wet days
-        if (any(abs((/ tmin_sd_w1, tmin_sd_w2 /) + 9999.) > 1e-7)) then
-            write (0, *) 'WARNING: Using depreceated tmin_sd_w1 and tmin_sd_w2 parameters! Use tmin_sd_w!'
+        if (any(abs([ tmin_sd_w1, tmin_sd_w2 ] + 9999.) > 1e-7)) then
+            write (0, *) 'WARNING: Using DEPRECATED tmin_sd_w1 and tmin_sd_w2 parameters! Use tmin_sd_w!'
             tmin_sd_w(:, :) = 0.
             tmin_sd_breaks(:) = 9999.
             tmin_sd_w(1, 1) = tmin_sd_w1
             tmin_sd_w(1, 2) = tmin_sd_w2
         end if
         ! tmin on dry days
-        if (any(abs((/ tmin_sd_d1, tmin_sd_d2 /) + 9999.) > 1e-7)) then
-            write (0, *) 'WARNING: Using depreceated tmin_sd_d1 and tmin_sd_d2 parameters! Use tmin_sd_d!'
+        if (any(abs([ tmin_sd_d1, tmin_sd_d2 ] + 9999.) > 1e-7)) then
+            write (0, *) 'WARNING: Using DEPRECATED tmin_sd_d1 and tmin_sd_d2 parameters! Use tmin_sd_d!'
             tmin_sd_d(:, :) = 0.
             tmin_sd_breaks(:) = 9999.
             tmin_sd_d(1, 1) = tmin_sd_d1
             tmin_sd_d(1, 2) = tmin_sd_d2
         end if
         ! tmax on wet days
-        if (any(abs((/ tmax_sd_w1, tmax_sd_w2 /) + 9999.) > 1e-7)) then
-            write (0, *) 'WARNING: Using depreceated tmax_sd_w1 and tmax_sd_w2 parameters! Use tmax_sd_w!'
+        if (any(abs([ tmax_sd_w1, tmax_sd_w2 ] + 9999.) > 1e-7)) then
+            write (0, *) 'WARNING: Using DEPRECATED tmax_sd_w1 and tmax_sd_w2 parameters! Use tmax_sd_w!'
             tmax_sd_w(:, :) = 0.
             tmax_sd_breaks(:) = 9999.
             tmax_sd_w(1, 1) = tmax_sd_w1
             tmax_sd_w(1, 2) = tmax_sd_w2
         end if
         ! tmax on dry days
-        if (any(abs((/ tmax_sd_d1, tmax_sd_d2 /) + 9999.) > 1e-7)) then
-            write (0, *) 'WARNING: Using depreceated tmax_sd_d1 and tmax_sd_d2 parameters! Use tmax_sd_d!'
+        if (any(abs([ tmax_sd_d1, tmax_sd_d2 ] + 9999.) > 1e-7)) then
+            write (0, *) 'WARNING: Using DEPRECATED tmax_sd_d1 and tmax_sd_d2 parameters! Use tmax_sd_d!'
             tmax_sd_d(:, :) = 0.
             tmax_sd_breaks(:) = 9999.
             tmax_sd_d(1, 1) = tmax_sd_d1
             tmax_sd_d(1, 2) = tmax_sd_d2
         end if
         ! wind on wet days
-        if (any(abs((/ wind_sd_w1, wind_sd_w2 /) + 9999.) > 1e-7)) then
-            write (0, *) 'WARNING: Using depreceated wind_sd_w1 and wind_sd_w2 parameters! Use wind_sd_w!'
+        if (any(abs([ wind_sd_w1, wind_sd_w2 ] + 9999.) > 1e-7)) then
+            write (0, *) 'WARNING: Using DEPRECATED wind_sd_w1 and wind_sd_w2 parameters! Use wind_sd_w!'
             wind_sd_w(:) = 0.
             wind_sd_w(1) = wind_sd_w1
             wind_sd_w(2) = wind_sd_w2
         end if
         ! wind on dry days
-        if (any(abs((/ wind_sd_d1, wind_sd_d2 /) + 9999.) > 1e-7)) then
-            write (0, *) 'WARNING: Using depreceated wind_sd_d1 and wind_sd_d2 parameters! Use wind_sd_d!'
+        if (any(abs([ wind_sd_d1, wind_sd_d2 ] + 9999.) > 1e-7)) then
+            write (0, *) 'WARNING: Using DEPRECATED wind_sd_d1 and wind_sd_d2 parameters! Use wind_sd_d!'
             wind_sd_d(:) = 0.
             wind_sd_d(1) = wind_sd_d1
             wind_sd_d(2) = wind_sd_d2
@@ -566,7 +570,7 @@ module weathergenmod
                 resid(4) - wind_slope_bias_x0)))
         else
             slopecorr = sum(wind_bias_coeffs(:) * ( &
-                max(wind_bias_min, min(wind_bias_max, resid(4))) ** (/ 0, 1, 2, 3, 4, 5 /)))
+                max(wind_bias_min, min(wind_bias_max, resid(4))) ** [ 0, 1, 2, 3, 4, 5 ]))
         end if
 
         if (abs(wind_intercept_bias_a + 9999.) > 1e-7) then
@@ -574,14 +578,14 @@ module weathergenmod
                 wind_intercept_bias_a * max(wind_bias_min, min(wind_bias_max, resid(4))))
         else
             intercept_corr = sum(wind_intercept_bias_coeffs(:) * ( &
-                max(wind_bias_min, min(wind_bias_max, resid(4))) ** (/ 0, 1, 2, 3, 4, 5 /)))
+                max(wind_bias_min, min(wind_bias_max, resid(4))) ** [ 0, 1, 2, 3, 4, 5 ]))
         end if
 
         wind = (wind - intercept_corr) / max(slopecorr, 9e-4)
 
         ! ----- tmin bias correction
         tmin_bias = sum(tmin_bias_coeffs(:) * ( &
-            max(tmin_bias_min, min(tmin_bias_max, resid(1))) ** (/ 0, 1, 2, 3, 4, 5 /)))
+            max(tmin_bias_min, min(tmin_bias_max, resid(1))) ** [ 0, 1, 2, 3, 4, 5 ]))
         tmin = tmin - roundto(tmin_bias, 1)
 
 
@@ -681,7 +685,7 @@ module weathergenmod
 
             dm%cldf_mn = cldf_w1 / (cldf_w2 * cld + cldf_w3) + cldf_w4
 
-            dm%wind_sd = sum(wind_sd_w * (dm%wind_mn ** (/ 0, 1, 2, 3, 4, 5 /)))
+            dm%wind_sd = sum(wind_sd_w * (dm%wind_mn ** [ 0, 1, 2, 3, 4, 5 ]))
 
             dm%cldf_sd = cldf_sd_w * dm%cldf_mn * (1. - dm%cldf_mn)
 
@@ -695,7 +699,7 @@ module weathergenmod
 
             dm%cldf_mn = cldf_d1 / (cldf_d2 * cld + cldf_d3) + cldf_d4
 
-            dm%wind_sd = sum(wind_sd_d * (dm%wind_mn ** (/ 0, 1, 2, 3, 4, 5 /)))
+            dm%wind_sd = sum(wind_sd_d * (dm%wind_mn ** [ 0, 1, 2, 3, 4, 5 ]))
 
             dm%cldf_sd = cldf_sd_d * dm%cldf_mn * (1. - dm%cldf_mn)
 
@@ -833,33 +837,55 @@ module weathergenmod
 
     end subroutine calc_cloud_params
 
-    subroutine temp_sd(pday, dm)
+ !---------------------------------------------------------
 
-        logical,          intent(in)  :: pday    ! precipitation status (mm/day)
-        type(daymetvars), intent(inout) :: dm
-        integer :: i
+subroutine temp_sd(pday, dm)
 
-        do i=1,4
-            if (i == 4 .or. dm%tmin_mn <= tmin_sd_breaks(i)) then
-                if (pday) then
-                    dm%tmin_sd = sum(tmin_sd_w(i, :) * (dm%tmin_mn ** (/ 0, 1, 2, 3, 4, 5 /)))
-                else
-                    dm%tmin_sd = sum(tmin_sd_d(i, :) * (dm%tmin_mn ** (/ 0, 1, 2, 3, 4, 5 /)))
-                end if
-                exit
-            endif
-        end do
-        do i=1,4
-            if (i == 4 .or. dm%tmax_mn <= tmax_sd_breaks(i)) then
-                if (pday) then
-                    dm%tmax_sd = sum(tmax_sd_w(i, :) * (dm%tmax_mn ** (/ 0, 1, 2, 3, 4, 5 /)))
-                else
-                    dm%tmax_sd = sum(tmax_sd_d(i, :) * (dm%tmax_mn ** (/ 0, 1, 2, 3, 4, 5 /)))
-                end if
-                exit
-            endif
-        end do
+logical,          intent(in)    :: pday    ! precipitation status (mm/day)
+type(daymetvars), intent(inout) :: dm
 
-    end subroutine temp_sd
+integer :: i
+
+!--------------------
+
+do i=1,4
+
+  if (i == 4 .or. dm%tmin_mn <= tmin_sd_breaks(i)) then
+
+    if (pday) then
+    
+      dm%tmin_sd = sum(tmin_sd_w(i,:) * (dm%tmin_mn**[0,1,2,3,4,5]))  !this is a clever way of calculating a polynomial expansion
+
+    else
+
+      dm%tmin_sd = sum(tmin_sd_d(i,:) * (dm%tmin_mn**[0,1,2,3,4,5]))
+
+    end if
+
+    exit
+
+  end if
+end do
+
+do i=1,4
+
+  if (i == 4 .or. dm%tmax_mn <= tmax_sd_breaks(i)) then
+
+    if (pday) then
+
+        dm%tmax_sd = sum(tmax_sd_w(i, :) * (dm%tmax_mn**[0,1,2,3,4,5]))
+
+    else
+
+        dm%tmax_sd = sum(tmax_sd_d(i, :) * (dm%tmax_mn**[0,1,2,3,4,5]))
+
+    end if
+
+    exit
+
+  end if
+end do
+
+end subroutine temp_sd
 
 end module weathergenmod
