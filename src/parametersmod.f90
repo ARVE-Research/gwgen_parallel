@@ -8,16 +8,17 @@ implicit none
 
 public :: ndaymonth
 
-integer, parameter :: dp = real64       ! 8 byte real
-integer, parameter :: sp = real32       ! 4 byte real
-integer, parameter :: i2 = int16        ! 2 byte integer
-integer, parameter :: i4 = int32        ! 4 byte integer
+integer, parameter :: i2 = int16   ! 2 byte integer
+integer, parameter :: i4 = int32   ! 4 byte integer
+integer, parameter :: sp = real32  ! 4 byte real
+integer, parameter :: dp = real32  ! 8 byte real
+! integer, parameter :: dp = real64  ! 8 byte real
 
 integer, parameter :: so = output_unit  ! unit number for standard output
 
 real(sp), parameter :: Tfreeze = 273.15 ! freezing temperature of freshwater (K)
 
-real(sp), parameter :: hp = huge(sp)    ! largest positive 4-byte real
+real(sp), parameter :: hsp = huge(sp)    ! largest positive 4-byte real
 
 contains
 

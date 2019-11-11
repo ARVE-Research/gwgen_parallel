@@ -4,6 +4,7 @@ gwgen_SOURCES =      \
   errormod.f90       \
   coordsmod.f90      \
   geohashmod.f90     \
+  statsmod.f90       \
   randomdistmod.f90  \
   weathergenmod.f90  \
   gwgen_grid.f90

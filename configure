@@ -2588,7 +2588,7 @@ if test x$HAS_NC_CONFIG = xno; then
 	echo "the nc-config script by passing the --with-nc-config=/full/path/nc-config argument"
 	echo "flag to the configure script.  For example:"
 	echo " "
-	echo "./configure --with-nc-config=/sw/dist/netcdf4/nc-config"
+	echo "./configure --with-nc-config=/usr/local/bin/nc-config"
 	echo "-----------------------------------------------------------------------------------"
 	exit -1
 fi
@@ -4204,6 +4204,105 @@ fi
 
 
 
+
+# Check whether --with-nc_config was given.
+if test "${with_nc_config+set}" = set; then :
+  withval=$with_nc_config; NC_CONFIG=$withval
+fi
+
+err=0
+if test x$NC_CONFIG = x; then
+	NC_CONFIG_SHORT=nc-config
+	NC_CONFIG_FULLQUAL=nc-config
+	NC_CONFIG_PATH=$PATH
+else
+	echo "user specified nc-config is $NC_CONFIG"
+	NC_CONFIG_SHORT=`basename $NC_CONFIG`
+	NC_CONFIG_FULLQUAL=$NC_CONFIG
+	NC_CONFIG_PATH=`dirname $NC_CONFIG`
+fi
+# Extract the first word of "$NC_CONFIG_SHORT", so it can be a program name with args.
+set dummy $NC_CONFIG_SHORT; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_prog_HAS_NC_CONFIG+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$HAS_NC_CONFIG"; then
+  ac_cv_prog_HAS_NC_CONFIG="$HAS_NC_CONFIG" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $NC_CONFIG_PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_prog_HAS_NC_CONFIG="yes"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_prog_HAS_NC_CONFIG" && ac_cv_prog_HAS_NC_CONFIG="no"
+fi
+fi
+HAS_NC_CONFIG=$ac_cv_prog_HAS_NC_CONFIG
+if test -n "$HAS_NC_CONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAS_NC_CONFIG" >&5
+$as_echo "$HAS_NC_CONFIG" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+if test x$HAS_NC_CONFIG = xno; then
+	echo "-----------------------------------------------------------------------------------"
+	echo "Error, nc-config not found or not executable.  This is a script that comes with the"
+	echo "netcdf library, version 4.1-beta2 or later, and must be present for configuration"
+	echo "to succeed."
+	echo " "
+	echo "If you installed the netcdf library (and nc-config) in a standard location, nc-config"
+	echo "should be found automatically.  Otherwise, you can specify the full path and name of"
+	echo "the nc-config script by passing the --with-nc-config=/full/path/nc-config argument"
+	echo "flag to the configure script.  For example:"
+	echo " "
+	echo "./configure --with-nc-config=/usr/local/bin/nc-config"
+	echo "-----------------------------------------------------------------------------------"
+	exit -1
+fi
+NETCDF_CC=`$NC_CONFIG_FULLQUAL --cc`
+NETCDF_FC=`$NC_CONFIG_FULLQUAL --fc`
+NETCDF_LDFLAGS=`$NC_CONFIG_FULLQUAL --libs`
+NETCDF_CPPFLAGS=`$NC_CONFIG_FULLQUAL --cflags`
+NETCDF_VERSION=`$NC_CONFIG_FULLQUAL --version`
+NETCDF_V4=`$NC_CONFIG_FULLQUAL --has-nc4`
+
+$as_echo "#define HAVE_NETCDF 1" >>confdefs.h
+
+if test x$NETCDF_V4 = xyes; then
+
+$as_echo "#define HAVE_NETCDF4 1" >>confdefs.h
+
+fi
+echo "Netcdf library version: $NETCDF_VERSION"
+echo "NetCDF library has version 4 interface present: $NETCDF_V4"
+echo "NetCDF-C was compiled with: $NETCDF_CC"
+echo "NetCDF-Fortran was compiled with: $NETCDF_FC"
+
+
+
+
+
+
+
+NETCDF_INCDIR=${NETCDF_CPPFLAGS##-I}
+NETCDF_LIBDIR=${NETCDF_LDFLAGS##-L}
+
+
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking fortran 90 modules inclusion flag" >&5
 $as_echo_n "checking fortran 90 modules inclusion flag... " >&6; }
 if ${ax_cv_f90_modflag+:} false; then :
@@ -4283,7 +4382,7 @@ ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest
 ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 
 eval "$as_ax_include=\"not found\""
-if test "x/usr/local/include:/sw/include" = x ; then
+if test "x$NETCDF_INCDIR" = x ; then
 ax_search="$prefix:$ac_default_prefix"
 for ax_base in "" `echo $LD_LIBRARY_PATH | tr ':' '\012'` ; do
   if test "x$ax_base" != x ; then
@@ -4292,7 +4391,7 @@ for ax_base in "" `echo $LD_LIBRARY_PATH | tr ':' '\012'` ; do
   fi
 done
 else
-ax_search="/usr/local/include:/sw/include"
+ax_search="$NETCDF_INCDIR"
 fi
 for ax_base in `echo $ax_search | tr ':' '\012'` ; do
  if test "`eval 'as_val=${'$as_ax_include'};$as_echo "$as_val"'`" = "not found" ; then
@@ -4354,7 +4453,7 @@ ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 
 ax_cv_f90_ldflags_netcdf=""
 ax_cv_f90_libs_netcdf="not found"
-if test "x/usr/local/lib:/sw/lib" = x ; then
+if test "x$NETCDF_LIBDIR" = x ; then
   if test "x$prefix" != "xNONE" ; then
     ax_search="$prefix:$ac_default_prefix"
   else
@@ -4367,7 +4466,7 @@ for ax_base in "" `echo $LD_LIBRARY_PATH | tr ':' '\012'` ; do
   fi
 done
 else
-ax_search="/usr/local/lib:/sw/lib"
+ax_search="$NETCDF_LIBDIR"
 fi
 ax_save_LDFLAGS="$LDFLAGS"
 ax_save_LIBS="$LIBS"

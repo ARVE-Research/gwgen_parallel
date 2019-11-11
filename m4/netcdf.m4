@@ -51,7 +51,7 @@ if test x$HAS_NC_CONFIG = xno; then
 	echo "the nc-config script by passing the --with-nc-config=/full/path/nc-config argument"
 	echo "flag to the configure script.  For example:"
 	echo " "
-	echo "./configure --with-nc-config=/sw/dist/netcdf4/nc-config"
+	echo "./configure --with-nc-config=/usr/local/bin/nc-config"
 	echo "-----------------------------------------------------------------------------------"
 	exit -1
 fi

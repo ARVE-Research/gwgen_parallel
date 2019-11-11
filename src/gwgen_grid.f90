@@ -13,7 +13,7 @@ use errormod,      only : ncstat,netcdf_err
 use coordsmod,     only : coordstring,bounds,parsecoords,calcpixels
 use geohashmod,    only : geohash
 use randomdistmod, only : ran_seed
-use weathergenmod, only : metvars_in, metvars_out, weathergen, init_weathergen,rmsmooth
+use weathergenmod, only : metvars_in, metvars_out, weathergen,rmsmooth
 use netcdf
 
 implicit none
@@ -136,12 +136,10 @@ real(sp) :: precdiff1 = huge(sp)   ! stored value of the difference between inpu
 type(metvars_in)  :: met_in   ! structure containing one day of meteorology input to weathergen
 type(metvars_out) :: met_out  ! structure containing one day of meteorology output from weathergen
 
-type(metvars_out), dimension(31) :: month_met  ! buffer containing one month of simulated meteorology
+type(metvars_out), dimension(31) :: month_met  ! buffer containing one month of simulated daily meteorology
 
 !--------------------------------------------------------------------------------------------------------------------------------------------------
 ! program starts here
-
-call init_weathergen()
 
 !-----------------------------------------------------
 ! INPUT: Read dimension IDs and lengths of dimensions

@@ -51,10 +51,15 @@ AX_PROG_FC_MPI([test x"$with_mpi" != xno],[use_mpi=yes],[
   fi
 ])
 
+AC_PATH_NETCDF( )
+
+NETCDF_INCDIR=${NETCDF_CPPFLAGS##-I}
+NETCDF_LIBDIR=${NETCDF_LDFLAGS##-L}
+
 AX_F90_MODULE([netcdfmod], ["netcdf.mod"], [
   use netcdf
   status = nf90_close(ncid)
-], [/usr/local/include:/sw/include], [$with_netcdfmod], [AC_MSG_ERROR(Can't find netcdf module.)])
+], [$NETCDF_INCDIR], [$with_netcdfmod], [AC_MSG_ERROR(Can't find netcdf module.)])
 
 save_FCFLAGS=$FCFLAGS
 save_LDFLAGS=$LDFLAGS
@@ -63,7 +68,7 @@ FCFLAGS="$FCFLAGS $F90_MODULE_netcdfmod"
 AX_F90_LIBRARY([netcdf], [libnetcdff*], [
   use netcdf
   status = nf90_close(ncid)
-], [/usr/local/lib:/sw/lib], [$with_netcdf], [AC_MSG_ERROR(Can't find netcdf library.)])
+], [$NETCDF_LIBDIR], [$with_netcdf], [AC_MSG_ERROR(Can't find netcdf library.)])
 
 LDFLAGS="$LDFLAGS $F90_LIBS_netcdf"
 
