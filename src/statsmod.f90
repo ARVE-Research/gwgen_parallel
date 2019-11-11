@@ -613,7 +613,7 @@ real(dp), parameter, dimension(8) :: d = &
     1.05075007164441684324e-9  ]
 
 real(dp), parameter, dimension(8) :: e = &
-  [ 6.65790464350110377720,   x &
+  [ 6.65790464350110377720,    &
     5.46378491116411436990,    &
     1.78482653991729133580,    &
     2.96560571828504891230e-1, &
@@ -736,33 +736,26 @@ real(dp) function r8poly_value_horner(m,c,x)
 !    - John Burkardt
 !    - Extracted by Philipp Sommer
 
+implicit none
 
+integer,                  intent(in) :: m  ! the degree
+real(dp), dimension(0:m), intent(in) :: c  ! the polynomial coefficients. C(I) is the coefficient of  :math:`X^I`
+real(dp),                 intent(in) :: x  ! the polynomial value
 
+integer  :: i
+real(dp) :: value
 
+!--------------------------
 
-        implicit none
+value = c(m)
 
-        integer,  intent(in) :: m      ! the degree
-        real(dp), dimension(0:m), intent(in) :: c ! the polynomial coefficients. C(I) is the coefficient of  :math:`X^I`
-        real(dp), intent(in) :: x      ! the polynomial value
+do i = m - 1,0,-1
+  value = value * x + c(i)
+end do
 
-        integer ( kind = 4 ) i
-        real(dp) value
+r8poly_value_horner = value
 
-        value = c(m)
-        do i = m - 1, 0, -1
-            value = value * x + c(i)
-        end do
-
-        r8poly_value_horner = value
-
-        return
-    end function r8poly_value_horner
-
-
-
-
-
+end function r8poly_value_horner
 
 !------------------------------------------------------------------------------
 
