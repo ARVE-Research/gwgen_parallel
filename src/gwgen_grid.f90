@@ -2,7 +2,8 @@ program gwgen_grid
 
 ! Use the Makefile to compile this program
 
-! Program to run gwgen with gridded input, provide the name of a climate data input file and geographic bounds for the simulation using a xmin/xmax/ymin/ymax string
+! Program to run gwgen with gridded input, provide the name of a climate data input file and
+! geographic bounds for the simulation using a xmin/xmax/ymin/ymax string
 ! JO Kaplan, HKU, 2019
 
 ! Terminal command line: ./gwgen_grid ~/path/to/input.file x_coordinate/y_coordinate

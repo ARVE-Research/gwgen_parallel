@@ -8,9 +8,10 @@ module weathergenmod
 ! by P.S. Sommer and J.O. Kaplan using global weather station datasets (GHCN and global synoptic cloud
 ! reports).
 !
-! Coded in 2007-2009 by Jed Kaplan and Joe Melton, ARVE Group, EPFL/UVic, jed.kaplan@unil.ch,
-! 2011, Shawn Koppenhoefer, shawn.koppenhoefer@unil.ch
-! 2016, Philipp Sommer, philipp.sommer@unil.ch
+! Coded in 2007-2009 by Jed Kaplan and Joe Melton, ARVE Group, EPFL/UVic
+! 2011, Shawn Koppenhoefer, EPFL
+! 2016, Philipp Sommer, UNIL
+! 2020, Jed Kaplan, HKU, jed.kaplan@hku.hk
 
 use parametersmod, only : sp,dp,i4,hsp
 use randomdistmod, only : randomstate
@@ -152,7 +153,7 @@ real(sp), parameter :: tmax_w2 =  0.948669  ! slope of best line fit of tmax on 
 real(sp), parameter :: tmax_d1 =  0.386508  ! intercept of best line fit of tmax on dry days
 real(sp), parameter :: tmax_d2 =  1.0061    ! slope of best line fit of tmax on dry days
 
-real(sp), parameter, dimension(4) :: tmax_sd_breaks = [ -30., 0.0, 35., hsp ]  ! breaks of the tmax sd correlation
+real(sp), parameter, dimension(4) :: tmax_sd_breaks = [ -30., 0., 35., hsp ]  ! breaks of the tmax sd correlation
 
 ! polynomial coefficients for correlating tmax sd on wet days
 real(sp), parameter, dimension(4,6) :: tmax_sd_w = reshape(      &
@@ -194,18 +195,17 @@ real(sp), parameter :: cldf_d3   = -(cldf_d * cldf_d) - cldf_d
 real(sp), parameter :: cldf_d4   = -1./cldf_d
 real(sp), parameter :: cldf_sd_d = cld_sd_d1**2
 
-
 ! wind regression results
-real(sp), parameter :: wind_w1 = 0.0          ! intercept of best line fit of wind on wet days
+real(sp), parameter :: wind_w1 = 0.          ! intercept of best line fit of wind on wet days
 real(sp), parameter :: wind_w2 = 1.092938     ! slope of best line fit of wind on wet days
-real(sp), parameter :: wind_d1 = 0.0          ! intercept of best line fit of wind on dry days
+real(sp), parameter :: wind_d1 = 0.          ! intercept of best line fit of wind on dry days
 real(sp), parameter :: wind_d2 = 0.945229     ! slope of best line fit of wind on wet days
 
 ! polygon coefficients for wind standard deviation on wet days
-real(sp), parameter, dimension(6) :: wind_sd_w = [ 0.0, 0.81840997, -0.12633931, 0.00933591, 0.0, 0.0 ]
+real(sp), parameter, dimension(6) :: wind_sd_w = [ 0., 0.81840997, -0.12633931, 0.00933591, 0., 0. ]
 
 ! polygon coefficients for wind standard deviation on dry days
-real(sp), parameter, dimension(6) :: wind_sd_d = [ 0.0, 1.08596114, -0.24073323, 0.02216454, 0.0, 0.0 ]
+real(sp), parameter, dimension(6) :: wind_sd_d = [ 0., 1.08596114, -0.24073323, 0.02216454, 0., 0. ]
 
 ! wind bias correction (Note: Default is no correction)
 ! min. and max range for bias correction (1st and 99th percentile)
@@ -219,18 +219,13 @@ real(sp), parameter :: wind_intercept_bias_b = -1.335892  ! intercept in the exp
 ! parameters of the slope - unorm best fit line
 ! coefficients for the bias correction of wind speed
 real(sp), parameter, dimension(6) :: wind_bias_coeffs = &
-   [ 0.9953539, 0.8507947, 2.7799824E-02, -6.7101441E-02, 0.0000000E+00, 0.0000000E+00 ]
+   [ 0.9953539, 0.8507947, 0.027799824, -0.067101441, 0., 0. ]
 
-real(sp), parameter, dimension(6) :: wind_intercept_bias_coeffs = 0.0
-
-! Alternative slope bias correction using a logistic function
-! real(sp) :: wind_slope_bias_L = -9999.   ! maximum value of logistic function of wind bias correction
-! real(sp) :: wind_slope_bias_k = -9999.   ! steepness of logistic function of wind bias correction
-! real(sp) :: wind_slope_bias_x0 = -9999.  ! x-value of sigmoid's midpoint of logistic function of wind bias correction
+real(sp), parameter, dimension(6) :: wind_intercept_bias_coeffs = 0.
 
 ! coefficients for the bias correction of minimum temperature
 ! (Note: Default is no correction)
-real(sp), parameter, dimension(6) :: tmin_bias_coeffs = 0.0  ! coefficients for the bias correction of minimum temperature
+real(sp), parameter, dimension(6) :: tmin_bias_coeffs = 0.  ! coefficients for the bias correction of minimum temperature
 
 ! min. and max range for bias correction (1st and 99th percentile)
 real(sp), parameter :: tmin_bias_min = -2.326348
@@ -306,6 +301,8 @@ real(dp) :: pdf_thresh  ! gamma pdf at the threshold
 type(daymetvars), target :: dmetvars
 
 real(sp), dimension(4) :: unorm  ! vector of uniformly distributed random numbers (0-1)
+
+integer, parameter, dimension(6) :: exponents = [0,1,2,3,4,5]
 
 !---------------------------------------------------------
 !input
@@ -388,13 +385,14 @@ if (wetf > 0. .and. pre > 0.) then
 
     gp_scale = (1. - cdf_thresh) / pdf_thresh
 
-    do  i=1,1000
+    i = 1
+    do
 
       !today's precipitation
 
       prec = ran_gamma_gp(rndst,.true.,g_shape,g_scale,p_trans,gp_shape,gp_scale)
 
-      !simulated precipitation should have no more precision than the input (0.1mm)
+      !simulated precipitation should have no more precision than the input (0.1 mm day-1)
 
       prec = roundto(prec,1)    
 
@@ -405,6 +403,8 @@ if (wetf > 0. .and. pre > 0.) then
       if (i == 1000) then
         write (0,*) 'Could not find good precipitation with ', pre, ' mm and ', wetd, ' wet days'
         stop
+      else
+        i = i + 1
       end if
 
     end do
@@ -422,84 +422,100 @@ else  ! there was no precipitation in this month, so none on this day either
 
 end if
 
-        !---------------------------
+!---------------------------
+!3) temperature min and max, cloud fraction
 
-        !3) temperature min and max, cloud fraction
+!calculate a baseline mean and SD for today's weather dependent on precip status
 
-        !calculate a baseline mean and SD for today's weather dependent on precip status
+call meansd(pday(1),tmn,tmx,cld,wnd,dmetvars)
 
-        call meansd(pday(1),tmn,tmx,cld,wnd,  dmetvars)
+! use random number generator for the normal distribution
 
-        ! use random number generator for the normal distribution
+do i = 1,4
+  call ran_normal(rndst,unorm(i))
+end do 
 
-        do i = 1,4
-            call ran_normal(rndst,unorm(i))
-        end do 
+!calculate today's residuals for weather variables
 
-        !calculate today's residuals for weather variables
+resid = matmul(A,resid) + matmul(B,unorm)  !Richardson 1981, eqn 5; WGEN tech report eqn. 3
 
-        resid = matmul(A,resid) + matmul(B,unorm)  !Richardson 1981, eqn 5; WGEN tech report eqn. 3
+!----- 
+! minimum temperature and tmin bias correction
 
-        tmin = roundto(resid(1) * tmin_sd + tmin_mn,1)
-        tmax = roundto(resid(2) * tmax_sd + tmax_mn,1)
+tmin = resid(1) * tmin_sd + tmin_mn
 
-        cldf = resid(3) * cldf_sd + cldf_mn
+tmin_bias = sum(tmin_bias_coeffs * (max(tmin_bias_min,min(tmin_bias_max,resid(1)))**exponents))
 
-        wind = max(0.0, resid(4) * sqrt(max(0.0, wind_sd)) + sqrt(max(0.0, wind_mn)))
-
-        wind = roundto(wind * wind, 1)
-
-
-        ! ----- tmin bias correction
-        tmin_bias = sum(tmin_bias_coeffs(:) * ( &
-            max(tmin_bias_min, min(tmin_bias_max, resid(1))) ** [ 0, 1, 2, 3, 4, 5 ]))
-        tmin = tmin - roundto(tmin_bias, 1)
+tmin = tmin - tmin_bias 
 
 
-        !---
-        !add checks for invalid values here
-        if (cldf>1) then
-            cldf = 1.0
-        elseif (cldf < 0.0) then
-            cldf = 0.0
-        end if
+!----- 
+! maximum temperature
 
-        if (wind<0) then
-            wind = 0.0
-        end if
-
-        if (tmin+Tfreeze < 0.) then
-            write(0,*)'Unphysical min. temperature with ', tmin, 'K from a monthly mean ', &
-                tmin_mn, 'degC with bias correction ', tmin_bias, 'K for residual', resid(1)
-            stop 1
-        elseif (tmax+Tfreeze < 0.) then
-            write(0,*)'Unphysical max. temperature with ', tmax, 'K from a monthly mean ', &
-                tmax_mn, 'degC'
-            stop 1
-        end if
-
-        !---
-
-        met_out%prec  = prec
-        met_out%tmin  = tmin
-        met_out%tmax  = tmax
-        met_out%cldf  = cldf
-        met_out%wind  = wind
-        met_out%pday  = pday
-        met_out%rndst = rndst
-        met_out%resid = resid
-        met_out%tmin_bias = tmin_bias
-        met_out%tmin_mn = tmin_mn
-        met_out%tmin_sd = tmin_sd
-        met_out%wind_bias = slopecorr
-        met_out%wind_intercept_bias = intercept_corr
-        met_out%wind_mn = wind_mn
-        met_out%wind_sd = wind_sd
-        met_out%unorm = unorm
+tmax = resid(2) * tmax_sd + tmax_mn
 
 
+!----- 
+! cloud fraction
 
-    end subroutine weathergen
+cldf = resid(3) * cldf_sd + cldf_mn
+
+!----- 
+! wind speed and wind bias correction
+
+wind = (resid(4) * sqrt(max(0., wind_sd)) + sqrt(max(0., wind_mn)))**2
+
+slopecorr = sum(wind_bias_coeffs * (max(wind_bias_min,min(wind_bias_max,resid(4)))**exponents))
+
+intercept_corr = exp(wind_intercept_bias_b + wind_intercept_bias_a * max(wind_bias_min,min(wind_bias_max,resid(4))))
+
+wind = (wind - intercept_corr) / max(slopecorr,9.e-4)
+
+!-----
+! check and correct invalid values
+
+if (tmin+Tfreeze < 0.) then
+  write(0,*)'Unphysical min. temperature with ',tmin,'K from a monthly mean ',tmin_mn,'degC with bias correction ',tmin_bias,'K for residual', resid(1)
+  stop
+end if
+
+if (tmax+Tfreeze < 0.) then
+  write(0,*)'Unphysical max. temperature with ',tmax,'K from a monthly mean ',tmax_mn,'degC'
+  stop
+end if
+
+wind = max(0.,wind)
+
+cldf = min(max(cldf,0.),1.)
+
+!----- 
+! adjustment to input precision
+
+tmin = roundto(tmin,1)
+tmax = roundto(tmax,1)
+cldf = roundto(cldf,3)
+wind = roundto(wind,2)
+
+!---
+
+met_out%prec  = prec
+met_out%tmin  = tmin
+met_out%tmax  = tmax
+met_out%cldf  = cldf
+met_out%wind  = wind
+met_out%pday  = pday
+met_out%rndst = rndst
+met_out%resid = resid
+met_out%tmin_bias = tmin_bias
+met_out%tmin_mn = tmin_mn
+met_out%tmin_sd = tmin_sd
+met_out%wind_bias = slopecorr
+met_out%wind_intercept_bias = intercept_corr
+met_out%wind_mn = wind_mn
+met_out%wind_sd = wind_sd
+met_out%unorm = unorm
+
+end subroutine weathergen
 
     !------------------------------------------------------------------------------------------------------------
 

@@ -88,6 +88,8 @@ AC_ARG_ENABLE([debug],
 
 if test "x$enable_debug" = xyes; then
 
+  echo "setting debugging flags"
+
   dnl strip optimization flags from FCFLAGS
 
   changequote({,})
@@ -96,7 +98,13 @@ if test "x$enable_debug" = xyes; then
   FCFLAGS=`echo "$FCFLAGS" | $SED -e 's/-g[0-9]*//g'`
   changequote([,])
   
-  if test "x$NETCDF_FC" = xifort; then
+  echo NETCDF_FC $NETCDF_FC
+  echo FCFLAGS $FCFLAGS
+  
+  if [[[ $NETCDF_FC =~ ifort ]]]; then
+
+    echo "setting debugging flags for ifort"
+
     dnl debugging flags for ifort
     
     FCFLAGS="$FCFLAGS -debug -fpe0 -traceback -g -check -check noarg_temp_created -warn all"
