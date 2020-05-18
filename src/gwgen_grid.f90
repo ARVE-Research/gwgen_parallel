@@ -75,7 +75,6 @@ real(sp) :: scale_factor      ! Value for the calculation of the "real" value of
 real(sp) :: add_offset        ! Value for the calculation of the "real" value of the parameters. Can be found in the netCDF file
 integer(i2) :: missing_value  ! Missing values in the input file
 
-
 ! Elements to calculate current year and amount of days in current month
 
 integer :: i_count,outd
@@ -94,7 +93,6 @@ integer :: yr    ! Variable year
 integer :: mon   ! Variable month 
 
 integer, allocatable, dimension(:) :: nd  
-
 
 ! Variables for the smoothing process
 
@@ -476,7 +474,7 @@ do j = 1,cnty
 
     ! start time loop
 
-    do yr = 1,nyrs-1
+    do yr = 1,2 ! nyrs-1
       do m = 1,12
 
         t = m + 12 * (yr - 1)
@@ -601,7 +599,7 @@ do j = 1,cnty
     
         calyr = yr+startyr-1
 
-        if (calyr > 1874 .and. calyr <= 1875) then
+        ! if (calyr > 1874 .and. calyr <= 1875) then
           do outd = 1,ndaymonth(calyr,m)
 
             ! FINAL OUTPUT WRITE STATEMENT
@@ -611,7 +609,7 @@ do j = 1,cnty
             month_met(outd)%tmin, month_met(outd)%tmax, month_met(outd)%cldf, month_met(outd)%wind, month_met(outd)%prec
 
           end do
-        end if
+        ! end if
 
       end do  ! month loop
     end do    ! year loop

@@ -58,8 +58,12 @@ type metvars_out
   logical, dimension(2)  :: pday    !precipitation state
   type(randomstate)      :: rndst   !state of the random number generator, 15 elements
   real(sp), dimension(4) :: resid   !previous day's weather residuals
-  real(sp) :: tmin_bias, wind_bias, wind_intercept_bias
-  real(sp) :: tmin_mn, tmin_sd, wind_mn, wind_sd
+  real(sp) :: wind_bias
+  real(sp) :: wind_intercept_bias
+  real(sp) :: tmin_mn
+  real(sp) :: tmin_sd
+  real(sp) :: wind_mn
+  real(sp) :: wind_sd
   real(sp), dimension(4) :: unorm
 
 end type metvars_out
@@ -82,6 +86,8 @@ end type daymetvars
 ! -----------------------------------------------------------------------------
 ! parameters
 
+integer, parameter, dimension(6) :: exponents = [0,1,2,3,4,5]
+
 real(sp), parameter :: p_trans = 5.   ! Threshold for transition from the gamma to gp distribution (mm)
 
 ! coefficient to esimate the gamma scale parameter via
@@ -92,7 +98,7 @@ real(sp), parameter :: g_scale_coeff = 1.268022 ! coefficient to esimate the gam
 real(sp), parameter :: gp_shape = 1.5 ! shape parameter for the Generalized Pareto distribution
 
 ! "A" matrix of present-day cross correlations among met variables (Richardson, 1984; Eqn. 4)
-real(sp), parameter, dimension(4,4) :: A = reshape( &
+real(sp),  dimension(4,4) :: A = reshape( &
       [0.913437,  0.032532, -0.020658,  0.000573,   &
        0.488761,  0.137304, -0.072510, -0.046058,   &
       -0.001990, -0.045730,  0.591761,  0.026439,   &
@@ -100,10 +106,10 @@ real(sp), parameter, dimension(4,4) :: A = reshape( &
 [4,4])
 
 ! "B" matrix of lag-1 cross correlations among met variables (Richardson, 1984; Eqn. 4)
-real(sp), parameter, dimension(4,4) :: B = reshape( & 
-      [0.361854,  0.000000,  0.000000,  0.000000,   &
-       0.114410,  0.802987,  0.000000,  0.000000,   &
-       0.144862, -0.060622,  0.782791,  0.000000,   &
+real(sp),  dimension(4,4) :: B = reshape( & 
+      [0.361854,  0.      ,  0.      ,  0.      ,   &
+       0.114410,  0.802987,  0.      ,  0.      ,   &
+       0.144862, -0.060622,  0.782791,  0.      ,   &
        0.080593, -0.015829,  0.066186,  0.736713],  &
 [4,4])
 
@@ -207,29 +213,21 @@ real(sp), parameter, dimension(6) :: wind_sd_w = [ 0., 0.81840997, -0.12633931, 
 ! polygon coefficients for wind standard deviation on dry days
 real(sp), parameter, dimension(6) :: wind_sd_d = [ 0., 1.08596114, -0.24073323, 0.02216454, 0., 0. ]
 
-! wind bias correction (Note: Default is no correction)
+! bias correction for wind speed (section 3.4)
 ! min. and max range for bias correction (1st and 99th percentile)
 real(sp), parameter :: wind_bias_min = -2.3263478740
 real(sp), parameter :: wind_bias_max =  2.3263478740
 
-! parameters for the exponential intercept correction
+! coefficients for the polynomial slope correction (eqn. 22)
+real(sp), parameter, dimension(6) :: wind_bias_coeffs = [ 0.9953539, 0.8507947, 0.027799824, -0.067101441, 0., 0. ]
+
+! coefficients for the exponential intercept correction (eqn. 21)
 real(sp), parameter :: wind_intercept_bias_a =  1.158225  ! slope in the exponent
 real(sp), parameter :: wind_intercept_bias_b = -1.335892  ! intercept in the exponent
 
-! parameters of the slope - unorm best fit line
-! coefficients for the bias correction of wind speed
-real(sp), parameter, dimension(6) :: wind_bias_coeffs = &
-   [ 0.9953539, 0.8507947, 0.027799824, -0.067101441, 0., 0. ]
+! coefficients for the polynomial intercept correction (shown in figure 14)
 
-real(sp), parameter, dimension(6) :: wind_intercept_bias_coeffs = 0.
-
-! coefficients for the bias correction of minimum temperature
-! (Note: Default is no correction)
-real(sp), parameter, dimension(6) :: tmin_bias_coeffs = 0.  ! coefficients for the bias correction of minimum temperature
-
-! min. and max range for bias correction (1st and 99th percentile)
-real(sp), parameter :: tmin_bias_min = -2.326348
-real(sp), parameter :: tmin_bias_max =  2.326348  ! min. and max range for bias correction
+real(sp), parameter, dimension(6) :: wind_intercept_bias_coeffs = [0.173,0.437,0.290,0.060,0.,0.]
 
 ! -----------------------------------------------------------------------------
 
@@ -293,7 +291,6 @@ real(sp) :: gp_scale
 ! bias correction
 real(sp) :: slopecorr      ! slope correction for wind
 real(sp) :: intercept_corr ! intercept correction for wind
-real(sp) :: tmin_bias      ! intercept correction for tmin
 
 real(dp) :: cdf_thresh  ! gamma cdf at the threshold
 real(dp) :: pdf_thresh  ! gamma pdf at the threshold
@@ -301,8 +298,6 @@ real(dp) :: pdf_thresh  ! gamma pdf at the threshold
 type(daymetvars), target :: dmetvars
 
 real(sp), dimension(4) :: unorm  ! vector of uniformly distributed random numbers (0-1)
-
-integer, parameter, dimension(6) :: exponents = [0,1,2,3,4,5]
 
 !---------------------------------------------------------
 !input
@@ -328,6 +323,29 @@ tmin_sd => dmetvars%tmin_sd
 tmax_sd => dmetvars%tmax_sd
 cldf_sd => dmetvars%cldf_sd
 wind_sd => dmetvars%wind_sd
+
+! do i = 1,4
+!   write(0,*)a(:,i)
+! end do
+! write(0,*)
+! do i = 1,4
+!   write(0,*)b(:,i)
+! end do
+! read(*,*)
+
+! these values come from one of the old namelists
+
+    a(:, 1) = [0.9161179, 0.48541803, 0.00353546, 0.01237203]
+    a(:, 2) = [0.03119116, 0.13461942, -0.04303678, -0.04305549]
+    a(:, 3) = [-0.01836789, -0.06865181, 0.59195356, -0.02017241]
+    a(:, 4) = [0.00087781, -0.04650604, 0.0234441, 0.67185901]
+
+    b(:, 1) = [0.35827493, 0.11247485, 0.14180909, 0.07727885]
+    b(:, 2) = [0.0, 0.80889378, -0.06030167, -0.01563132]
+    b(:, 3) = [0.0, 0.0, 0.78463208, 0.06061359]
+    b(:, 4) = [0.0, 0.0, 0.0, 0.73288315]
+
+
 
 !-----------------------------------------------------------
 !1) Precipitation occurrence
@@ -355,6 +373,7 @@ if (wetf > 0. .and. pre > 0.) then
 
   ! -----
   ! determine the precipitation state of the current day using the Markov chain approach
+  
   u = ranur(rndst)
   
   if (u <= pwet) then  !today is a rain day
@@ -401,7 +420,7 @@ if (wetf > 0. .and. pre > 0.) then
       if (prec > 0. .and. prec <= 1.05 * pre) exit
 
       if (i == 1000) then
-        write (0,*) 'Could not find good precipitation with ', pre, ' mm and ', wetd, ' wet days'
+        write (0,*)'Could not find good precipitation with ', pre, ' mm and ', wetd, ' wet days'
         stop
       else
         i = i + 1
@@ -425,35 +444,41 @@ end if
 !---------------------------
 !3) temperature min and max, cloud fraction
 
-!calculate a baseline mean and SD for today's weather dependent on precip status
+! calculate a baseline mean and SD for today's weather dependent on precip status
 
 call meansd(pday(1),tmn,tmx,cld,wnd,dmetvars)
 
-! use random number generator for the normal distribution
+! draw four random numbers from a normal distribution
 
 do i = 1,4
   call ran_normal(rndst,unorm(i))
 end do 
 
-!calculate today's residuals for weather variables
+! calculate today's residuals for weather variables
+! this captures the cross correlation between variables and within and internal temporal autocorrelation
 
 resid = matmul(A,resid) + matmul(B,unorm)  !Richardson 1981, eqn 5; WGEN tech report eqn. 3
+! resid = matmul(B,unorm)  !Richardson 1981, eqn 5; WGEN tech report eqn. 3
+! resid = matmul(A,unorm)  !Richardson 1981, eqn 5; WGEN tech report eqn. 3
+
+! calculate the weather variables as a function of the mean and standard deviation modified by the residual
 
 !----- 
-! minimum temperature and tmin bias correction
+! minimum temperature
 
 tmin = resid(1) * tmin_sd + tmin_mn
 
-tmin_bias = sum(tmin_bias_coeffs * (max(tmin_bias_min,min(tmin_bias_max,resid(1)))**exponents))
+if (abs(tmin - tmin_mn) > 2.* tmin_sd) then
 
-tmin = tmin - tmin_bias 
+  write(0,'(l3,6f10.4)')pday(1),tmn,tmin_mn,tmin_sd,resid(1),unorm(1),tmin
+!   read(*,*)
 
+end if
 
 !----- 
 ! maximum temperature
 
 tmax = resid(2) * tmax_sd + tmax_mn
-
 
 !----- 
 ! cloud fraction
@@ -467,7 +492,10 @@ wind = (resid(4) * sqrt(max(0., wind_sd)) + sqrt(max(0., wind_mn)))**2
 
 slopecorr = sum(wind_bias_coeffs * (max(wind_bias_min,min(wind_bias_max,resid(4)))**exponents))
 
-intercept_corr = exp(wind_intercept_bias_b + wind_intercept_bias_a * max(wind_bias_min,min(wind_bias_max,resid(4))))
+! The intercept can be calculated using either an exponential (eqn 21) or a polynomial (fig. 14) function. Choose one from below
+
+! intercept_corr = exp(wind_intercept_bias_b + wind_intercept_bias_a * max(wind_bias_min,min(wind_bias_max,resid(4))))
+intercept_corr = sum(wind_intercept_bias_coeffs * (max(wind_bias_min,min(wind_bias_max,resid(4)))**exponents))
 
 wind = (wind - intercept_corr) / max(slopecorr,9.e-4)
 
@@ -475,7 +503,7 @@ wind = (wind - intercept_corr) / max(slopecorr,9.e-4)
 ! check and correct invalid values
 
 if (tmin+Tfreeze < 0.) then
-  write(0,*)'Unphysical min. temperature with ',tmin,'K from a monthly mean ',tmin_mn,'degC with bias correction ',tmin_bias,'K for residual', resid(1)
+  write(0,*)'Unphysical min. temperature with ',tmin,'K from a monthly mean ',tmin_mn,'degC'
   stop
 end if
 
@@ -506,7 +534,6 @@ met_out%wind  = wind
 met_out%pday  = pday
 met_out%rndst = rndst
 met_out%resid = resid
-met_out%tmin_bias = tmin_bias
 met_out%tmin_mn = tmin_mn
 met_out%tmin_sd = tmin_sd
 met_out%wind_bias = slopecorr
@@ -517,165 +544,168 @@ met_out%unorm = unorm
 
 end subroutine weathergen
 
-    !------------------------------------------------------------------------------------------------------------
+!------------------------------------------------------------------------------------------------------------
 
-    subroutine meansd(pday,tmn,tmx,cld,wind,dm)
-        ! Adjust the monthly means of temperature, cloud and wind corresponding to the wet/dry state
-        !
-        ! This routine makes the first approximation inside the weather generator to adjust the monthly
-        ! mean according to the wet/dry state using the best fit lines from the parameterization.
-        !
-        ! Min. and max. temperature, as well as the wind speed, are calculated via
-        !
-        ! .. math::
-        !
-        !     x_{w/d} = x_{w/d1} + x_{w/d2} \cdot \bar{x}
-        !
-        ! Where :math:`x` stands either for the :math:`T_{min}, T_{max}, T_{min, sd}, T_{max, sd}, wind`
-        ! or :math:`wind_{sd}`. :math:`w/d` stands for the wet dry state deterimined by `pday`.
-        !
-        ! The cloud fraction is calculated via
-        !
-        ! .. math::
-        !
-        !     c_{w/d} = \frac{-a_{w/d} - 1}{a_{w/d}^2 * \bar{c} - a_{w/d}^2 - a_{w/d}}  - \frac{1}{a_{w/d}}
-        !
-        ! and it's standard deviation via
-        !
-        ! .. math::
-        !
-        !     c_{sd, w/d} = a_{sd, w/d}^2 \cdot c_{w/d} \cdot (1 - c_{w/d})
-        implicit none
+subroutine meansd(pday,tmn,tmx,cld,wind,dm)
 
-        logical,          intent(in)  :: pday    ! precipitation status (mm/day)
-        real(sp),         intent(in)  :: tmn     ! smooth interpolation of monthly minimum temperature (degC)
-        real(sp),         intent(in)  :: tmx     ! smooth interpolation of monthly maximum temperature (degC)
-        real(sp),         intent(in)  :: cld     ! fraction (0-1)
-        real(sp),         intent(in)  :: wind    ! wind speed (m/s)
-        type(daymetvars), intent(out) :: dm      ! the :f:type:`daymetvars` for the first daily approximation
+! Adjust the monthly means of temperature, cloud and wind corresponding to the wet/dry state
+!
+! This routine makes the first approximation inside the weather generator to adjust the monthly
+! mean according to the wet/dry state using the best fit lines from the parameterization.
+!
+! Min. and max. temperature, as well as the wind speed, are calculated via
+!
+! .. math::
+!
+!     x_{w/d} = x_{w/d1} + x_{w/d2} \cdot \bar{x}
+!
+! Where :math:`x` stands either for the :math:`T_{min}, T_{max}, T_{min, sd}, T_{max, sd}, wind`
+! or :math:`wind_{sd}`. :math:`w/d` stands for the wet dry state deterimined by `pday`.
+!
+! The cloud fraction is calculated via
+!
+! .. math::
+!
+!     c_{w/d} = \frac{-a_{w/d} - 1}{a_{w/d}^2 * \bar{c} - a_{w/d}^2 - a_{w/d}}  - \frac{1}{a_{w/d}}
+!
+! and it's standard deviation via
+!
+! .. math::
+!
+!     c_{sd, w/d} = a_{sd, w/d}^2 \cdot c_{w/d} \cdot (1 - c_{w/d})
 
-        !local variables
+implicit none
 
-        !---
+logical,          intent(in)  :: pday    ! precipitation status (mm/day)
+real(sp),         intent(in)  :: tmn     ! smooth interpolation of monthly minimum temperature (degC)
+real(sp),         intent(in)  :: tmx     ! smooth interpolation of monthly maximum temperature (degC)
+real(sp),         intent(in)  :: cld     ! fraction (0-1)
+real(sp),         intent(in)  :: wind    ! wind speed (m/s)
+type(daymetvars), intent(out) :: dm      ! the :f:type:`daymetvars` for the first daily approximation
 
-        if (pday) then  !calculate mean and SD for a wet day
+!local variables
 
-            dm%tmin_mn = tmin_w1 + tmin_w2 * tmn
+!---
 
-            dm%tmax_mn = tmax_w1 + tmax_w2 * tmx
+if (pday) then  !calculate mean and SD for a wet day
 
-            dm%wind_mn = wind_w1 + wind_w2 * wind
+  dm%tmin_mn = tmin_w1 + tmin_w2 * tmn
 
-            dm%cldf_mn = cldf_w1 / (cldf_w2 * cld + cldf_w3) + cldf_w4
+  dm%tmax_mn = tmax_w1 + tmax_w2 * tmx
 
-            dm%wind_sd = sum(wind_sd_w * (dm%wind_mn ** [ 0, 1, 2, 3, 4, 5 ]))
+  dm%wind_mn = wind_w1 + wind_w2 * wind
 
-            dm%cldf_sd = cldf_sd_w * dm%cldf_mn * (1. - dm%cldf_mn)
+  dm%cldf_mn = cldf_w1 / (cldf_w2 * cld + cldf_w3) + cldf_w4
 
-        else  !dry day
+  dm%wind_sd = sum(wind_sd_w * (dm%wind_mn ** [ 0, 1, 2, 3, 4, 5 ]))
 
-            dm%tmin_mn = tmin_d1 + tmin_d2 * tmn
+  dm%cldf_sd = cldf_sd_w * dm%cldf_mn * (1. - dm%cldf_mn)
 
-            dm%tmax_mn = tmax_d1 + tmax_d2 * tmx
+else  !dry day
 
-            dm%wind_mn = wind_d1 + wind_d2 * wind
+  dm%tmin_mn = tmin_d1 + tmin_d2 * tmn
 
-            dm%cldf_mn = cldf_d1 / (cldf_d2 * cld + cldf_d3) + cldf_d4
+  dm%tmax_mn = tmax_d1 + tmax_d2 * tmx
 
-            dm%wind_sd = sum(wind_sd_d * (dm%wind_mn ** [ 0, 1, 2, 3, 4, 5 ]))
+  dm%wind_mn = wind_d1 + wind_d2 * wind
 
-            dm%cldf_sd = cldf_sd_d * dm%cldf_mn * (1. - dm%cldf_mn)
+  dm%cldf_mn = cldf_d1 / (cldf_d2 * cld + cldf_d3) + cldf_d4
 
-        end if
+  dm%wind_sd = sum(wind_sd_d * (dm%wind_mn ** [ 0, 1, 2, 3, 4, 5 ]))
 
-        call temp_sd(pday, dm)
+  dm%cldf_sd = cldf_sd_d * dm%cldf_mn * (1. - dm%cldf_mn)
 
-    end subroutine meansd
+end if
 
-    !----------------------------------------------------------------------------------------------------------------
+call temp_sd(pday, dm)
 
-    subroutine rmsmooth(m,dmonth,bcond,r)
-        ! Iterative, mean preserving method to smoothly interpolate mean data to pseudo-sub-timestep values
-        ! From Rymes, M.D. and D.R. Myers, 2001. Solar Energy (71) 4, 225-231
+end subroutine meansd
 
-        use parametersmod, only : sp
+!----------------------------------------------------------------------------------------------------------------
 
-        implicit none
+subroutine rmsmooth(m,dmonth,bcond,r)
 
-        !arguments
-        real(sp), dimension(:), intent(in)  :: m      ! vector of mean values at super-time step (e.g., monthly), minimum three values
-        integer,  dimension(:), intent(in)  :: dmonth ! vector of number of intervals for the time step (e.g., days per month)
-        real(sp), dimension(2), intent(in)  :: bcond  ! boundary conditions for the result vector (1=left side, 2=right side)
-        real(sp), dimension(:), intent(out) :: r      ! result vector of values at chosen time step
+! Iterative, mean preserving method to smoothly interpolate mean data to pseudo-sub-timestep values
+! From Rymes, M.D. and D.R. Myers, 2001. Solar Energy (71) 4, 225-231
 
-        !parameters
-        real(sp), parameter :: ot = 1. / 3
+use parametersmod, only : sp
 
-        !local variables
-        integer :: n
-        integer :: ni
-        integer :: a
-        integer :: b
-        integer :: i
-        integer :: j
-        integer :: k
-        integer :: l
-        integer, dimension(size(r)) :: g
-        real(sp) :: ck
+implicit none
 
-        real(sp), dimension(2) :: bc
+!arguments
+real(sp), dimension(:), intent(in)  :: m      ! vector of mean values at super-time step (e.g., monthly), minimum three values
+integer,  dimension(:), intent(in)  :: dmonth ! vector of number of intervals for the time step (e.g., days per month)
+real(sp), dimension(2), intent(in)  :: bcond  ! boundary conditions for the result vector (1=left side, 2=right side)
+real(sp), dimension(:), intent(out) :: r      ! result vector of values at chosen time step
 
-        !----------
+!parameters
+real(sp), parameter :: ot = 1. / 3
 
-        n  = size(m)
-        ni = size(r)
+!local variables
+integer :: n
+integer :: ni
+integer :: a
+integer :: b
+integer :: i
+integer :: j
+integer :: k
+integer :: l
+integer, dimension(size(r)) :: g
+real(sp) :: ck
 
-        bc = bcond
+real(sp), dimension(2) :: bc
 
-        !initialize the result vector
-        i = 1
-        do a = 1,n
-            j = i
-            do b = 1,dmonth(a)
-                r(i) = m(a)
-                g(i) = j
-                i = i + 1
-            end do
-        end do
+!----------
 
-        !iteratively smooth and correct the result to preserve the mean
+n  = size(m)
+ni = size(r)
 
-        !iteration loop
-        do i = 1,ni
+bc = bcond
 
-            do j = 2,ni-1
-                r(j) = ot * (r(j-1) + r(j) + r(j+1))   !Eqn. 1
-            end do
+!initialize the result vector
+i = 1
+do a = 1,n
+  j = i
+  do b = 1,dmonth(a)
+    r(i) = m(a)
+    g(i) = j
+    i = i + 1
+  end do
+end do
 
-            r(1)  = ot * (bc(1)   + r(1)  +  r(2))   !Eqns. 2
-            r(ni) = ot * (r(ni-1) + r(ni) + bc(2))
+!iteratively smooth and correct the result to preserve the mean
 
-            j = 1
-            do k = 1,n                               !calculate one correction factor per super-timestep
+!iteration loop
+do i = 1,ni
 
-                a = g(j)                               !index of the first timestep value of the super-timestep
-                b = g(j) + dmonth(k) - 1               !index of the last timestep value of the super-timestep
+  do j = 2,ni-1
+    r(j) = ot * (r(j-1) + r(j) + r(j+1))   !Eqn. 1
+  end do
 
-                ck = sum(m(k) - r(a:b)) / ni           !Eqn. 4
+  r(1)  = ot * (bc(1)   + r(1)  +  r(2))   !Eqns. 2
+  r(ni) = ot * (r(ni-1) + r(ni) + bc(2))
 
-                do l = 1,dmonth(k)                     !apply the correction to all timestep values in the super-timestep
-                    r(j) = r(j) + ck
-                    j = j + 1
-                end do
+  j = 1
+  do k = 1,n                               !calculate one correction factor per super-timestep
 
-                !correction for circular conditions when using climatology (do not use for transient simulations)
-                bc(1) = r(ni)
-                bc(2) = r(1)
+    a = g(j)                               !index of the first timestep value of the super-timestep
+    b = g(j) + dmonth(k) - 1               !index of the last timestep value of the super-timestep
 
-            end do
-        end do
+    ck = sum(m(k) - r(a:b)) / ni           !Eqn. 4
 
-    end subroutine rmsmooth
+    do l = 1,dmonth(k)                     !apply the correction to all timestep values in the super-timestep
+      r(j) = r(j) + ck
+      j = j + 1
+    end do
+
+    !correction for circular conditions when using climatology (do not use for transient simulations)
+    bc(1) = r(ni)
+    bc(2) = r(1)
+
+  end do
+end do
+
+end subroutine rmsmooth
 
 !-----------------------------------------------------------------------
 
@@ -719,11 +749,11 @@ do i=1,4
 
     if (pday) then
     
-      dm%tmin_sd = sum(tmin_sd_w(i,:) * (dm%tmin_mn**[0,1,2,3,4,5]))  !this is a clever way of calculating a polynomial expansion
+      dm%tmin_sd = sum(tmin_sd_w(i,:) * (dm%tmin_mn**exponents))  !the vector 'exponents' is a clever way of calculating a polynomial expansion
 
     else
 
-      dm%tmin_sd = sum(tmin_sd_d(i,:) * (dm%tmin_mn**[0,1,2,3,4,5]))
+      dm%tmin_sd = sum(tmin_sd_d(i,:) * (dm%tmin_mn**exponents))
 
     end if
 
@@ -738,11 +768,11 @@ do i=1,4
 
     if (pday) then
 
-        dm%tmax_sd = sum(tmax_sd_w(i, :) * (dm%tmax_mn**[0,1,2,3,4,5]))
+      dm%tmax_sd = sum(tmax_sd_w(i, :) * (dm%tmax_mn**exponents))
 
     else
 
-        dm%tmax_sd = sum(tmax_sd_d(i, :) * (dm%tmax_mn**[0,1,2,3,4,5]))
+      dm%tmax_sd = sum(tmax_sd_d(i, :) * (dm%tmax_mn**exponents))
 
     end if
 
@@ -752,5 +782,7 @@ do i=1,4
 end do
 
 end subroutine temp_sd
+
+!---------------------------------------------------------
 
 end module weathergenmod

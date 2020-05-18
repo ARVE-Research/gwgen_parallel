@@ -12,7 +12,7 @@ module randomdistmod
 !   Burkardt for the gamma and normal distribution functions
 
 use parametersmod, only : sp,dp,i4
-use statsmod, only : gamma_pdf,gamma_cdf
+use statsmod,      only : gamma_pdf,gamma_cdf
 
 implicit none
 
@@ -31,8 +31,8 @@ integer(i4), parameter :: qsiz  = 10   !41265_i4
 integer(i4), parameter :: cmul  = 69609_i4
 integer(i4), parameter :: coffs =   123_i4
 
-real(sp), parameter :: rng1 = 1. / (2. * real(huge(i4)))  !scales the random integer to -0.5,0.5
-real(sp), parameter :: rng2 = 1. / real(huge(i4))         !scales the random integer to -1,1
+real(sp), parameter :: rng1 = 1. / (2. * real(huge(i4)))  !scales a random integer to -0.5,0.5
+real(sp), parameter :: rng2 = 1. / real(huge(i4))         !scales a random integer to -1,1
 
 real(sp), parameter :: one    = 1.
 real(sp), parameter :: half   = 0.5
@@ -198,7 +198,6 @@ s = q(1)
 
 end function refill
 
-
 !-----------------------------------------------------------------------
 
 subroutine ran_normal(state,nval)
@@ -225,30 +224,30 @@ real(sp) :: a
 
 do
 
-    u(1) = ranu(state)
-    u(2) = ranu(state)
+  u(1) = ranu(state)
+  u(2) = ranu(state)
 
-    v = real(u) * rng2   !convert integer (-huge,+huge) to (-1,+1)
+  v = real(u) * rng2   !convert integer (-huge,+huge) to (-1,+1)
 
-    s = sum(v**2)
+  s = sum(v**2)
 
-    if (s < 1.) exit
+  if (s < 1.) exit
 
 end do
 
-    a = sqrt(-2. * log(s) / s)
+a = sqrt(-2. * log(s) / s)
 
-    vals = v * a
+vals = v * a
 
 if (state%have) then
 
-    state%have = .false.
-    nval = vals(2)
+  state%have = .false.
+  nval = vals(2)
 
 else
 
-    nval = vals(1)
-    state%have = .true.
+  nval = vals(1)
+  state%have = .true.
 
 end if
 
@@ -284,41 +283,40 @@ real(sp)        :: u
 real(sp)        :: v
 real(sp)        :: x
 
-!--------
+!---------------------
 
 if (shape <= 0.) then
 
-    write(0,*) 'shape parameter value must be positive'
-    stop
+  write(0,*) 'shape parameter value must be positive'
+  stop
 
 else if (shape >= 1.) then
 
-    if (first) then
-        d = shape - 1. / 3.
-        c = 1. / sqrt(9. * d)
-    end if
+  if (first) then
+    d = shape - 1. / 3.
+    c = 1. / sqrt(9. * d)
+  end if
 
-    do
+  do
+    do  !generate v = (1+cx)^3 where x is random normal; repeat if v <= 0.
 
-        do  !generate v = (1+cx)^3 where x is random normal; repeat if v <= 0.
+      call ran_normal(state,x)
+      v = (1. + c * x)**3
+      if (v > 0.) exit
 
-          call ran_normal(state,x)
-          v = (1. + c * x)**3
-          if (v > 0.) exit
-
-        end do
-
-        u = ranur(state)  ! generate uniform variable u in the range (0,1)
-
-        if (u < 1. - 0.0331 * x**4 .or. log(u) < half * x**2 + d*(1. - v + log(v))) then
-          ret = scale * d * v
-          exit
-        end if
     end do
+
+    u = ranur(state)  ! generate uniform variable u in the range (0,1)
+
+    if (u < 1. - 0.0331 * x**4 .or. log(u) < half * x**2 + d*(1. - v + log(v))) then
+      ret = scale * d * v
+      exit
+    end if
+  end do
 
 else
 
-    ret = scale * ran_gamma(state,first,shape + 1.,1.) * ranur(state)**(1. / shape)
+  ret = scale * ran_gamma(state,first,shape + 1.,1.) * ranur(state)**(1. / shape)
 
 end if
 
@@ -379,6 +377,6 @@ endif
 
 end function ran_gp
 
-
+!----------------------------------------------------------------------------------------------------------
 
 end module randomdistmod
