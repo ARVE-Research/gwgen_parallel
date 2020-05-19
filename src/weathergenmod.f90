@@ -207,10 +207,10 @@ real(sp), parameter :: wind_w2 = 1.092938     ! slope of best line fit of wind o
 real(sp), parameter :: wind_d1 = 0.          ! intercept of best line fit of wind on dry days
 real(sp), parameter :: wind_d2 = 0.945229     ! slope of best line fit of wind on wet days
 
-! polygon coefficients for wind standard deviation on wet days
+! polynomial coefficients for wind standard deviation on wet days
 real(sp), parameter, dimension(6) :: wind_sd_w = [ 0., 0.81840997, -0.12633931, 0.00933591, 0., 0. ]
 
-! polygon coefficients for wind standard deviation on dry days
+! polynomial coefficients for wind standard deviation on dry days
 real(sp), parameter, dimension(6) :: wind_sd_d = [ 0., 1.08596114, -0.24073323, 0.02216454, 0., 0. ]
 
 ! bias correction for wind speed (section 3.4)
@@ -219,7 +219,7 @@ real(sp), parameter :: wind_bias_min = -2.3263478740
 real(sp), parameter :: wind_bias_max =  2.3263478740
 
 ! coefficients for the polynomial slope correction (eqn. 22)
-real(sp), parameter, dimension(6) :: wind_bias_coeffs = [ 0.9953539, 0.8507947, 0.027799824, -0.067101441, 0., 0. ]
+real(sp), parameter, dimension(6) :: wind_slope_bias_coeffs = [ 0.9953539, 0.8507947, 0.027799824, -0.067101441, 0., 0. ]
 
 ! coefficients for the exponential intercept correction (eqn. 21)
 real(sp), parameter :: wind_intercept_bias_a =  1.158225  ! slope in the exponent
@@ -279,6 +279,7 @@ real(sp) :: tmin
 real(sp) :: tmax
 real(sp) :: cldf
 real(sp) :: wind
+real(sp) :: windc
 
 real(sp) :: pbar     ! mean amount of precipitation per wet day (mm)
 real(sp) :: pwet     ! probability that today will be wet
@@ -335,15 +336,15 @@ wind_sd => dmetvars%wind_sd
 
 ! these values come from one of the old namelists
 
-    a(:, 1) = [0.9161179, 0.48541803, 0.00353546, 0.01237203]
-    a(:, 2) = [0.03119116, 0.13461942, -0.04303678, -0.04305549]
-    a(:, 3) = [-0.01836789, -0.06865181, 0.59195356, -0.02017241]
-    a(:, 4) = [0.00087781, -0.04650604, 0.0234441, 0.67185901]
-
-    b(:, 1) = [0.35827493, 0.11247485, 0.14180909, 0.07727885]
-    b(:, 2) = [0.0, 0.80889378, -0.06030167, -0.01563132]
-    b(:, 3) = [0.0, 0.0, 0.78463208, 0.06061359]
-    b(:, 4) = [0.0, 0.0, 0.0, 0.73288315]
+!     a(:, 1) = [0.9161179, 0.48541803, 0.00353546, 0.01237203]
+!     a(:, 2) = [0.03119116, 0.13461942, -0.04303678, -0.04305549]
+!     a(:, 3) = [-0.01836789, -0.06865181, 0.59195356, -0.02017241]
+!     a(:, 4) = [0.00087781, -0.04650604, 0.0234441, 0.67185901]
+! 
+!     b(:, 1) = [0.35827493, 0.11247485, 0.14180909, 0.07727885]
+!     b(:, 2) = [0.0, 0.80889378, -0.06030167, -0.01563132]
+!     b(:, 3) = [0.0, 0.0, 0.78463208, 0.06061359]
+!     b(:, 4) = [0.0, 0.0, 0.0, 0.73288315]
 
 
 
@@ -412,8 +413,10 @@ if (wetf > 0. .and. pre > 0.) then
       prec = ran_gamma_gp(rndst,.true.,g_shape,g_scale,p_trans,gp_shape,gp_scale)
 
       !simulated precipitation should have no more precision than the input (0.1 mm day-1)
-
-      prec = roundto(prec,1)    
+      
+      ! if (prec < 0. .or. prec > 2000.) then
+      !  write(0,*)'strange precip',prec,g_shape,g_scale,p_trans,gp_shape,gp_scale
+      ! end if
 
       ! enforce positive precipitation that is not more than 5% greater than the monthly total
 
@@ -427,6 +430,8 @@ if (wetf > 0. .and. pre > 0.) then
       end if
 
     end do
+
+    prec = roundto(prec,1)    
 
   else
 
@@ -468,12 +473,12 @@ resid = matmul(A,resid) + matmul(B,unorm)  !Richardson 1981, eqn 5; WGEN tech re
 
 tmin = resid(1) * tmin_sd + tmin_mn
 
-if (abs(tmin - tmin_mn) > 2.* tmin_sd) then
+! if (abs(tmin - tmin_mn) > 2.* tmin_sd) then
 
-  write(0,'(l3,6f10.4)')pday(1),tmn,tmin_mn,tmin_sd,resid(1),unorm(1),tmin
+!   write(0,'(l3,6f10.4)')pday(1),tmn,tmin_mn,tmin_sd,resid(1),unorm(1),tmin
 !   read(*,*)
 
-end if
+! end if
 
 !----- 
 ! maximum temperature
@@ -488,16 +493,27 @@ cldf = resid(3) * cldf_sd + cldf_mn
 !----- 
 ! wind speed and wind bias correction
 
-wind = (resid(4) * sqrt(max(0., wind_sd)) + sqrt(max(0., wind_mn)))**2
+wind_sd = max(wind_sd,0.)
+wind_mn = max(wind_mn,0.)
 
-slopecorr = sum(wind_bias_coeffs * (max(wind_bias_min,min(wind_bias_max,resid(4)))**exponents))
+! wind = (resid(4) * sqrt(wind_sd) + sqrt(wind_mn))**2
+wind = (resid(4) * sqrt(wind_sd))**2 + wind_mn
+
+slopecorr = sum(wind_slope_bias_coeffs * (max(wind_bias_min,min(wind_bias_max,unorm(4)))**exponents))
 
 ! The intercept can be calculated using either an exponential (eqn 21) or a polynomial (fig. 14) function. Choose one from below
 
-! intercept_corr = exp(wind_intercept_bias_b + wind_intercept_bias_a * max(wind_bias_min,min(wind_bias_max,resid(4))))
-intercept_corr = sum(wind_intercept_bias_coeffs * (max(wind_bias_min,min(wind_bias_max,resid(4)))**exponents))
+intercept_corr = exp(wind_intercept_bias_b + wind_intercept_bias_a * max(wind_bias_min,min(wind_bias_max,unorm(4))))
+! intercept_corr = sum(wind_intercept_bias_coeffs * (max(wind_bias_min,min(wind_bias_max,resid(4)))**exponents))
 
-wind = (wind - intercept_corr) / max(slopecorr,9.e-4)
+windc = (wind - intercept_corr) / max(slopecorr,9.e-4)
+
+! wind = windc
+
+! if (windc > 2. * wind_mn) then
+!   write(0,'(a,4f6.1,4f8.4)')'wind',wind_mn,wind_sd,wind,windc,slopecorr,intercept_corr,unorm(4),resid(4)
+!   read(*,*)
+! end if
 
 !-----
 ! check and correct invalid values

@@ -55,6 +55,7 @@ integer :: cnty
 
 integer(i2), allocatable, dimension(:,:,:) :: var_in      
 
+logical, allocatable, dimension(:,:) :: valid_pixel
 
 ! Monthly input attributes
 
@@ -62,14 +63,14 @@ real(sp), allocatable, dimension(:,:,:) :: tmp        ! mean monthly temperature
 real(sp), allocatable, dimension(:,:,:) :: dtr        ! mean monthly diurnal temperature range (degC)
 real(sp), allocatable, dimension(:,:,:) :: pre        ! total monthly precipitation (mm)
 real(sp), allocatable, dimension(:,:,:) :: wet        ! number of days in the month with precipitation > 0.1 mm (days)
-real(sp), allocatable, dimension(:,:,:) :: cld        ! mean monthly cloud cover (percent)
+real(sp), allocatable, dimension(:,:,:) :: cld        ! mean monthly cloud cover (fraction)
 real(sp), allocatable, dimension(:,:,:) :: wnd        ! mean monthly 10m windspeed (m s-1)
 
 ! Monthly input attributes calculated here
 
 real(sp), allocatable, dimension(:,:,:) :: mtmin      ! maximum monthly temperature (degC)
 real(sp), allocatable, dimension(:,:,:) :: mtmax      ! monthly minimum temperature (degC)
-real(sp), allocatable, dimension(:,:,:) :: wetf      ! fraction of wet days in a month
+real(sp), allocatable, dimension(:,:,:) :: wetf       ! fraction of wet days in a month
 
 real(sp) :: scale_factor      ! Value for the calculation of the "real" value of the parameters. Can be found in the netCDF file
 real(sp) :: add_offset        ! Value for the calculation of the "real" value of the parameters. Can be found in the netCDF file
@@ -83,6 +84,7 @@ integer :: nyrs                        ! Number of years (tlen/12)
 integer :: d0
 integer :: d1
 integer :: calyr
+integer :: ndm
 
 integer, parameter :: nmos = 12   ! Number of months
 
@@ -125,7 +127,7 @@ integer  :: pdaydiff     ! difference between input and simulated wet days
 real(sp) :: precdiff     ! difference between input and simulated total monthly precipitation (mm)
 
 real(sp) :: prec_t       ! tolerance for difference between input and simulated total monthly precipitation (mm)
-integer, parameter  :: wetd_t = 3  ! tolerance for difference between input and simulated wetdays (days)
+integer, parameter  :: wetd_t = 1  ! tolerance for difference between input and simulated wetdays (days)
 
 integer  :: pdaydiff1 = huge(i4)   ! stored value of the best match difference between input and simulated wet days
 real(sp) :: precdiff1 = huge(sp)   ! stored value of the difference between input and simulated total monthly precipitation (mm)
@@ -136,6 +138,17 @@ type(metvars_in)  :: met_in   ! structure containing one day of meteorology inpu
 type(metvars_out) :: met_out  ! structure containing one day of meteorology output from weathergen
 
 type(metvars_out), dimension(31) :: month_met  ! buffer containing one month of simulated daily meteorology
+
+real(sp) :: mtmin_sim
+real(sp) :: mtmax_sim
+real(sp) :: mcldf_sim
+real(sp) :: mwind_sim
+
+real(sp) :: prec_corr
+real(sp) :: tmin_corr
+real(sp) :: tmax_corr
+real(sp) :: cldf_corr
+real(sp) :: wind_corr
 
 !--------------------------------------------------------------------------------------------------------------------------------------------------
 ! program starts here
@@ -229,10 +242,16 @@ ncstat = nf90_get_var(ifid,varid,lat,start=[srty],count=[cnty])  ! Get variable 
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 !---------------------------------------------------------------------
+
+allocate(valid_pixel(cntx,cnty))
+
+valid_pixel = .true.
+
+!---------------------------------------------------------------------
 ! read the timeseries of monthly temperature
 
 ! Allocate space of area of interest and temporal range to tmp array (mean monthly temperature)
-allocate(tmp(cntx,cnty,tlen)) 
+allocate(tmp(cntx,cnty,tlen))
 
 ncstat = nf90_inq_varid(ifid,"tmp",varid)                         ! Get variable ID of variable tmp 
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
@@ -252,6 +271,8 @@ if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 ! Where the temperature attribute is not missing value, calculate the real temperature using the scale factor and the add_offset
 where (var_in /= missing_value) tmp = real(var_in) * scale_factor + add_offset      
+
+where (var_in(:,:,1) == missing_value) valid_pixel = .false.
 
 !---------------------------------------------------------------------
 ! read the timeseries of monthly diurnal temperature range
@@ -347,7 +368,11 @@ ncstat = nf90_get_att(ifid,varid,"add_offset",add_offset)         ! Get attribut
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 ! Where cld is not missing value, calculate real values using add_offset and scale_factor
-where (var_in /= missing_value) cld = real(var_in) * scale_factor + add_offset      
+where (var_in /= missing_value) cld = real(var_in) * scale_factor + add_offset  
+
+! convert cloud percent into cloud fraction
+
+cld = 0.01 * cld
 
 !---------------------------------------------------------------------
 ! read the timeseries of windspeed
@@ -437,6 +462,10 @@ end do
 
 do j = 1,cnty
   do i = 1,cntx
+  
+    ! check that this gridcell has valid meteorology
+    
+    if (.not. valid_pixel(i,j)) cycle
 
     ! initialize the random number generator for this gridcell so the stream of random numbers is always the same
 
@@ -474,7 +503,7 @@ do j = 1,cnty
 
     ! start time loop
 
-    do yr = 1,2 ! nyrs-1
+    do yr = 1,nyrs-1
       do m = 1,12
 
         t = m + 12 * (yr - 1)
@@ -497,6 +526,8 @@ do j = 1,cnty
         d0 = sum(ndbuf(-w:-1))+1
         d1 = d0 + ndbuf(0) - 1
         
+        ndm = d1 - d0 + 1
+        
         ! restrict simulated total monthly precip to +/-5% or 0.5 mm of observed value
 
         prec_t = max(0.5,0.05 * pre(i,j,t))
@@ -504,7 +535,7 @@ do j = 1,cnty
         i_count = 0
 
         !---------------------------------------------------------------------------------
-        ! quality control loop calling the weathergen -  this loop principally checks that
+        ! quality control loop calling the weathergen - this loop principally checks that
         ! the number of wet days and total precip stayed close to the input data
 
         do
@@ -524,7 +555,7 @@ do j = 1,cnty
             met_in%wetf  = wetf(i,j,t)
             met_in%tmin  = tmin_sm(d)
             met_in%tmax  = tmax_sm(d)
-            met_in%cldf  = real(cld_sm(d)) * 0.01
+            met_in%cldf  = real(cld_sm(d))
             met_in%wind  = real(wnd_sm(d))
             met_in%pday  = met_out%pday
             met_in%resid = met_out%resid
@@ -556,14 +587,21 @@ do j = 1,cnty
 
           else if (i_count < 2) then
           
-            cycle  !enforce at least two times over the month to get initial values ok
-
+            cycle  !enforce at least two times over the month to get initial values for residuals ok
+            
+          else if (pre(i,j,t) > 0. .and. mprec_sim == 0.) then
+          
+            cycle  ! need to get at least some precip if there is some in the input data
+            
           end if
 
           pdaydiff = abs(wet(i,j,t) - mwetd_sim)
           precdiff = abs(pre(i,j,t) - mprec_sim)
 
-          if (pdaydiff <= wetd_t .and. precdiff <= prec_t) then
+          ! if (pdaydiff <= wetd_t .and. precdiff <= prec_t) then
+          if (pdaydiff <= wetd_t) then
+          
+            write(0,'(2i5,a,i4,a)')yr,m,' exiting after',i_count,' iterations'
 
             exit
 
@@ -583,11 +621,49 @@ do j = 1,cnty
 
           end if
  
-        end do  
-
+        end do
+        
         ! end of quality control loop
         !---------------------------------------------------------------------------------
+        
+        ! adjust meteorological values to match the input means following Richardson & Wright 1984
+        
+!         if (mprec_sim > 0.) then
+!           write(0,'(a,i5,2f6.1,f8.4)')'precip and correction factor',ndm,pre(1,1,t),mprec_sim,pre(1,1,t)/mprec_sim
+!         end if
 
+        mtmin_sim = sum(month_met(1:ndm)%tmin)/ndm
+        mtmax_sim = sum(month_met(1:ndm)%tmax)/ndm
+        mcldf_sim  = sum(month_met(1:ndm)%cldf)/ndm
+        mwind_sim  = sum(month_met(1:ndm)%wind)/ndm
+        
+        if (mprec_sim == 0.) then
+          if (pre(1,1,t) > 0.) stop 'error in precip amount'
+          prec_corr = 1.
+        else
+          prec_corr = pre(1,1,t) / mprec_sim
+        end if
+
+        tmin_corr = mtmin(1,1,t) - mtmin_sim
+        tmax_corr = mtmax(1,1,t) - mtmax_sim
+        cldf_corr = cld(1,1,t) - mcldf_sim
+        
+        if (mwind_sim > 0.) then
+          wind_corr = wnd(1,1,t) / mwind_sim
+        else
+          wind_corr = 1.
+        end if
+
+        month_met(1:ndm)%prec = month_met(1:ndm)%prec * prec_corr
+        month_met(1:ndm)%tmin = month_met(1:ndm)%tmin + tmin_corr
+        month_met(1:ndm)%tmax = month_met(1:ndm)%tmax + tmax_corr
+        month_met(1:ndm)%cldf = min(max(month_met(1:ndm)%cldf + cldf_corr,0.),1.)     
+        month_met(1:ndm)%wind = month_met(1:ndm)%wind * wind_corr
+        
+        ! write(0,'(a,3f6.1)')'precip',pre(1,1,t),mprec_sim,prec_corr
+
+        !-----------------------------------------------------------
+        
         mtminbuf = eoshift(mtminbuf,1,mtmin(i,j,t+w+1))
         mtmaxbuf = eoshift(mtmaxbuf,1,mtmax(i,j,t+w+1))
         ndbuf    = eoshift(ndbuf,1,nd(t+w+1))
@@ -599,17 +675,17 @@ do j = 1,cnty
     
         calyr = yr+startyr-1
 
-        ! if (calyr > 1874 .and. calyr <= 1875) then
+        if (calyr > 1991 .and. calyr <= 2000) then
           do outd = 1,ndaymonth(calyr,m)
 
             ! FINAL OUTPUT WRITE STATEMENT
             write(*,'(5i5, 15f9.2)')i,j,calyr, m, outd,&
-            mtmin(1,1,t), mtmax(1,1,t), tmp(1,1,t), cld(1,1,t)/100, wnd(1,1,t), pre(1,1,t), &
-            tmin_sm(d0+outd-1), tmax_sm(d0+outd-1), (cld_sm(d0+outd-1)*0.01), wnd_sm(d0+outd-1), &                               ! met_in%cldf, met_in%wind,&
+            mtmin(1,1,t), mtmax(1,1,t), tmp(1,1,t), cld(1,1,t), wnd(1,1,t), pre(1,1,t), &
+            tmin_sm(d0+outd-1), tmax_sm(d0+outd-1), (cld_sm(d0+outd-1)), wnd_sm(d0+outd-1), &                               ! met_in%cldf, met_in%wind,&
             month_met(outd)%tmin, month_met(outd)%tmax, month_met(outd)%cldf, month_met(outd)%wind, month_met(outd)%prec
 
           end do
-        ! end if
+        end if
 
       end do  ! month loop
     end do    ! year loop
