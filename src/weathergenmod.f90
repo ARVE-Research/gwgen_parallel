@@ -22,9 +22,15 @@ public  :: metvars_in
 public  :: metvars_out
 public  :: rmsmooth
 public  :: weathergen
+public  :: roundto
 
 private :: daymetvars
 private :: meansd
+
+interface roundto
+  module procedure roundto_s
+  module procedure roundto_v
+end interface
 
 !-------------------------------
 
@@ -93,101 +99,103 @@ real(sp), parameter :: p_trans = 5.   ! Threshold for transition from the gamma 
 ! coefficient to esimate the gamma scale parameter via
 ! g_scale = g_scale_coeff * mean_monthly_precip / number_of_wet_days
 ! following Geng et al., 1986
-real(sp), parameter :: g_scale_coeff = 1.268022 ! coefficient to esimate the gamma scale parameter
+real(sp), parameter :: g_scale_coeff = 1.26238637383 ! coefficient to esimate the gamma scale parameter
 
 real(sp), parameter :: gp_shape = 1.5 ! shape parameter for the Generalized Pareto distribution
 
 ! "A" matrix of present-day cross correlations among met variables (Richardson, 1984; Eqn. 4)
 real(sp),  dimension(4,4) :: A = reshape( &
-      [0.913437,  0.032532, -0.020658,  0.000573,   &
-       0.488761,  0.137304, -0.072510, -0.046058,   &
-      -0.001990, -0.045730,  0.591761,  0.026439,   &
-       0.010905, -0.044171, -0.018568,  0.666672],  & 
+      [0.9161179,   0.48541803,  0.00353546,  0.01237203,  &
+       0.03119116,  0.13461942, -0.04303678, -0.04305549,  &
+      -0.01836789, -0.06865181,  0.59195356, -0.02017241,  &
+       0.00087781, -0.04650604,  0.02344410,  0.67185901], &
 [4,4])
 
 ! "B" matrix of lag-1 cross correlations among met variables (Richardson, 1984; Eqn. 4)
-real(sp),  dimension(4,4) :: B = reshape( & 
-      [0.361854,  0.      ,  0.      ,  0.      ,   &
-       0.114410,  0.802987,  0.      ,  0.      ,   &
-       0.144862, -0.060622,  0.782791,  0.      ,   &
-       0.080593, -0.015829,  0.066186,  0.736713],  &
+real(sp),  dimension(4,4) :: B = reshape( &
+      [0.35827493,  0.11247485,  0.14180909,  0.07727885,  &
+       0.        ,  0.80889378, -0.06030167, -0.01563132,  &
+       0.        ,  0.        ,  0.78463208,  0.06061359,  &
+       0.        ,  0.        ,  0.        ,  0.73288315], &
 [4,4])
 
-! transition probability correlations
-real(sp), parameter :: p11_1  = 0.254877  ! intercept of p11 best line fit
-real(sp), parameter :: p11_2  = 0.745123  ! slope of p11 best line fit
-real(sp), parameter :: p101_1 = 0.000000  ! intercept of p101 best line fit
-real(sp), parameter :: p101_2 = 0.846326  ! slope of p101 best line fit
-real(sp), parameter :: p001_1 = 0.000000  ! intercept of p001 best line fit
-real(sp), parameter :: p001_2 = 0.724019  ! slope of p001 best line fit
+! transition probabilites for rainfall occurrence
+
+real(sp), parameter :: p001_1 = 0.
+real(sp), parameter :: p001_2 = 0.726255902678
+real(sp), parameter :: p101_1 = 0.
+real(sp), parameter :: p101_2 = 0.850865292741
+real(sp), parameter :: p11_1  = 0.245996077709
+real(sp), parameter :: p11_2  = 0.754003922291
 
 ! temperature and cloud correlation parameters corresponding to wet or dry day
 
 ! minimum temperature regression results
-real(sp), parameter :: tmin_w1 =  1.164653  ! intercept of best line fit of tmin on wet days
-real(sp), parameter :: tmin_w2 =  0.955787  ! slope of best line fit of tmin on wet days
-real(sp), parameter :: tmin_d1 = -0.528308  ! intercept of best line fit of tmin on dry days
-real(sp), parameter :: tmin_d2 =  1.020964  ! slope of best line fit of tmin on dry days
+
+real(sp), parameter :: tmin_w1 =  1.04112467154   ! intercept of best line fit of tmin on wet days
+real(sp), parameter :: tmin_w2 =  0.968508586637  ! slope of best line fit of tmin on wet days
+real(sp), parameter :: tmin_d1 = -0.509991702366  ! intercept of best line fit of tmin on dry days
+real(sp), parameter :: tmin_d2 =  1.0187566938    ! slope of best line fit of tmin on dry days
 
 real(sp), parameter, dimension(4) :: tmin_sd_breaks = [ -40., 0., 25., hsp ]  ! breaks of the tmin sd correlation
 
 ! polynomial coefficients for correlating tmin sd on wet days
 real(sp), parameter, dimension(4,6) :: tmin_sd_w = reshape(     &
    ! < -40      -40 - 0         0 - 25          > 25
-   [9.727157,   3.054988,       3.218742,       0.5570704,      &    
-    0.1010504, -0.2115882,     -4.5076340E-02,  2.4431231E-02,  &
-    0.0000000,  1.3749480E-02,  2.0944821E-02,  0.0000000,      &
-    0.0000000,  1.4053800E-03, -2.6457701E-03,  0.0000000,      &
-    0.0000000,  3.6860001E-05,  9.8179997E-05,  0.0000000,      &
-    0.0000000,  3.2000000E-07, -1.1300000E-06,  0.0000000],     &
+   [9.72715668, 3.05498827,     3.21874237,     0.55707042,     &
+    0.1010504, -0.21158825,    -0.04507634,     0.02443123,     &
+    0.,         0.01374948,     0.02094482,     0.,             &
+    0.,         0.00140538,    -0.00264577,     0.,             &
+    0.,         3.686e-05,      9.818e-05,      0.,             &
+    0.,         3.2e-07,       -1.13e-06,       0.],            &
 [4,6])
 
 ! polynomial coefficients for correlating tmin sd on dry days
 real(sp), parameter, dimension(4,6) :: tmin_sd_d = reshape(     &
    ! < -40      -40 - 0         0 - 25          > 25
-  [10.89901,    3.567557,       3.794117,      -4.619434,       &
-    0.1270989, -0.1154459,      3.2986969E-02,  0.2260560,      &
-    0.0000000,  2.8244009E-02, -1.5045540E-02,  0.0000000,      &
-    0.0000000,  1.9561199E-03,  1.9034600E-03,  0.0000000,      &
-    0.0000000,  4.3140000E-05, -1.1362000E-04,  0.0000000,      &
-    0.0000000,  3.2000000E-07,  2.1300000E-06,  0.0000000],     &
+  [10.89900605, 3.56755661,     3.79411755,    -4.61943457,     &
+    0.12709893,-0.11544588,     0.03298697,     0.22605603,     &
+    0.,         0.02824401,    -0.01504554,     0.,             &
+    0.,         0.00195612,     0.00190346,     0.,             &
+    0.,         4.314e-05,     -0.00011362,     0.,             &
+    0.,         3.2e-07,        2.13e-06,       0.],            &
 [4,6])
 
 ! maximum temperature regression results
-real(sp), parameter :: tmax_w1 = -0.586296  ! intercept of best line fit of tmax on wet days
-real(sp), parameter :: tmax_w2 =  0.948669  ! slope of best line fit of tmax on wet days
-real(sp), parameter :: tmax_d1 =  0.386508  ! intercept of best line fit of tmax on dry days
-real(sp), parameter :: tmax_d2 =  1.0061    ! slope of best line fit of tmax on dry days
+real(sp), parameter :: tmax_w1 = -0.520369083738  ! intercept of best line fit of tmax on wet days
+real(sp), parameter :: tmax_w2 =  0.945882247389  ! slope of best line fit of tmax on wet days
+real(sp), parameter :: tmax_d1 =  0.0727046667366 ! intercept of best line fit of tmax on dry days
+real(sp), parameter :: tmax_d2 =  1.02109969737   ! slope of best line fit of tmax on dry days
 
 real(sp), parameter, dimension(4) :: tmax_sd_breaks = [ -30., 0., 35., hsp ]  ! breaks of the tmax sd correlation
 
 ! polynomial coefficients for correlating tmax sd on wet days
 real(sp), parameter, dimension(4,6) :: tmax_sd_w = reshape(      &
-! < -30           -30 - 0         0 - 35          > 35
- [6.672004,       3.860109,       3.791932,       5.552928,      &
-  3.6439080E-02, -0.2186120,     -3.1260211E-02, -9.7347148E-02, &
-  0.0000000,      3.8846501E-03,  1.6114730E-02,  0.0000000,     &
-  0.0000000,      1.4617400E-03, -1.2029801E-03,  0.0000000,     &
-  0.0000000,      6.0589999E-05,  2.9119999E-05,  0.0000000,     &
-  0.0000000,      7.4000002E-07, -2.3999999E-07,  0.0000000],    &
+!   < -30         -30 - 0         0 - 35          > 35
+   [6.67200351, 3.86010858,     3.79193207,     5.55292835,      &
+    0.03643908,-0.21861197,    -0.03126021,    -0.09734715,      &
+    0.,         0.00388465,     0.01611473,     0.,              &
+    0.,         0.00146174,    -0.00120298,     0.,              &
+    0.,         6.059e-05,      2.912e-05,      0.,              &
+    0.,         7.4e-07,       -2.4e-07,        0.],             &
 [4,6])
 
 ! polynomial coefficients for correlating tmax sd on dry days
 real(sp), parameter, dimension(4,6) :: tmax_sd_d = reshape(      &
-! < -30           -30 - 0         0 - 35          > 35
- [7.374552,       4.617019,       4.745510,       3.255418,      &
-  1.5355260E-02, -0.3387282,     -7.6098159E-02, -2.1786051E-02, &
-  0.0000000,     -1.8756600E-02,  1.8930580E-02,  0.0000000,     &
-  0.0000000,     -3.1850001E-04, -1.3494299E-03,  0.0000000,     &
-  0.0000000,      3.5000000E-06,  3.2090000E-05,  0.0000000,     &
-  0.0000000,      1.1000000E-07, -2.5000000E-07,  0.0000000],    &
+!   < -30         -30 - 0         0 - 35          > 35
+   [7.37455165, 4.61701866,     4.74550991,     3.25541815,      &
+    0.01535526,-0.33872824,    -0.07609816,    -0.02178605,      &
+    0.,        -0.0187566,      0.01893058,     0.,              &
+    0.,        -0.0003185,     -0.00134943,     0.,              &
+    0.,         3.5e-06,        3.209e-05,      0.,              &
+    0.,         1.1e-07,       -2.5e-07,        0.],             &
 [4,6])
 
 ! cloud regression results
-real(sp), parameter :: cldf_w    = -0.738271  ! *a* parameter for cloud fit on wet days
-real(sp), parameter :: cldf_d    =  0.420534  ! *a* parameter for cloud fit on dry days
-real(sp), parameter :: cld_sd_w1 =  0.981917  ! *a* parameter for std. dev. of cloud fit on wet days
-real(sp), parameter :: cld_sd_d1 =  1.041732  ! *a* parameter for std. dev. of cloud fit on dry days
+real(sp), parameter :: cldf_w    = -0.737614365472  ! *a* parameter for cloud fit on wet days
+real(sp), parameter :: cldf_d    =  0.430151697315  ! *a* parameter for cloud fit on dry days
+real(sp), parameter :: cld_sd_w1 =  0.988122524524  ! *a* parameter for std. dev. of cloud fit on wet days
+real(sp), parameter :: cld_sd_d1 =  1.04479456802   ! *a* parameter for std. dev. of cloud fit on dry days
 
 real(sp), parameter :: cldf_w1   =  -cldf_w - 1.
 real(sp), parameter :: cldf_w2   =   cldf_w * cldf_w
@@ -202,10 +210,10 @@ real(sp), parameter :: cldf_d4   = -1./cldf_d
 real(sp), parameter :: cldf_sd_d = cld_sd_d1**2
 
 ! wind regression results
-real(sp), parameter :: wind_w1 = 0.          ! intercept of best line fit of wind on wet days
-real(sp), parameter :: wind_w2 = 1.092938     ! slope of best line fit of wind on wet days
-real(sp), parameter :: wind_d1 = 0.          ! intercept of best line fit of wind on dry days
-real(sp), parameter :: wind_d2 = 0.945229     ! slope of best line fit of wind on wet days
+real(sp), parameter :: wind_w1 = 0.             ! intercept of best line fit of wind on wet days
+real(sp), parameter :: wind_w2 = 1.09369483822  ! slope of best line fit of wind on wet days
+real(sp), parameter :: wind_d1 = 0.             ! intercept of best line fit of wind on dry days
+real(sp), parameter :: wind_d2 = 0.943668419335 ! slope of best line fit of wind on wet days
 
 ! polynomial coefficients for wind standard deviation on wet days
 real(sp), parameter, dimension(6) :: wind_sd_w = [ 0., 0.81840997, -0.12633931, 0.00933591, 0., 0. ]
@@ -215,15 +223,15 @@ real(sp), parameter, dimension(6) :: wind_sd_d = [ 0., 1.08596114, -0.24073323, 
 
 ! bias correction for wind speed (section 3.4)
 ! min. and max range for bias correction (1st and 99th percentile)
-real(sp), parameter :: wind_bias_min = -2.3263478740
-real(sp), parameter :: wind_bias_max =  2.3263478740
+real(sp), parameter :: wind_bias_min = -2.32634787404
+real(sp), parameter :: wind_bias_max =  2.32634787404
 
 ! coefficients for the polynomial slope correction (eqn. 22)
 real(sp), parameter, dimension(6) :: wind_slope_bias_coeffs = [ 0.9953539, 0.8507947, 0.027799824, -0.067101441, 0., 0. ]
 
 ! coefficients for the exponential intercept correction (eqn. 21)
-real(sp), parameter :: wind_intercept_bias_a =  1.158225  ! slope in the exponent
-real(sp), parameter :: wind_intercept_bias_b = -1.335892  ! intercept in the exponent
+real(sp), parameter :: wind_intercept_bias_a =  1.15822457203  ! slope in the exponent
+real(sp), parameter :: wind_intercept_bias_b = -1.3358916953  ! intercept in the exponent
 
 ! coefficients for the polynomial intercept correction (shown in figure 14)
 
@@ -431,7 +439,7 @@ if (wetf > 0. .and. pre > 0.) then
 
     end do
 
-    prec = roundto(prec,1)    
+!     prec = roundto(prec,1)    
 
   else
 
@@ -490,23 +498,23 @@ tmax = resid(2) * tmax_sd + tmax_mn
 
 cldf = resid(3) * cldf_sd + cldf_mn
 
-!----- 
+!-----------------------------------------
 ! wind speed and wind bias correction
 
 wind_sd = max(wind_sd,0.)
 wind_mn = max(wind_mn,0.)
 
-! wind = (resid(4) * sqrt(wind_sd) + sqrt(wind_mn))**2
-wind = (resid(4) * sqrt(wind_sd))**2 + wind_mn
+wind = (resid(4) * sqrt(wind_sd) + sqrt(wind_mn))**2
+! wind = (resid(4) * sqrt(wind_sd))**2 + wind_mn
 
-slopecorr = sum(wind_slope_bias_coeffs * (max(wind_bias_min,min(wind_bias_max,unorm(4)))**exponents))
+slopecorr = sum(wind_slope_bias_coeffs * (max(wind_bias_min,min(wind_bias_max,resid(4)))**exponents))
 
 ! The intercept can be calculated using either an exponential (eqn 21) or a polynomial (fig. 14) function. Choose one from below
 
-intercept_corr = exp(wind_intercept_bias_b + wind_intercept_bias_a * max(wind_bias_min,min(wind_bias_max,unorm(4))))
+intercept_corr = exp(wind_intercept_bias_b + wind_intercept_bias_a * max(wind_bias_min,min(wind_bias_max,resid(4))))
 ! intercept_corr = sum(wind_intercept_bias_coeffs * (max(wind_bias_min,min(wind_bias_max,resid(4)))**exponents))
 
-windc = (wind - intercept_corr) / max(slopecorr,9.e-4)
+! windc = (wind - intercept_corr) / max(slopecorr,9.e-4)
 
 ! wind = windc
 
@@ -514,6 +522,8 @@ windc = (wind - intercept_corr) / max(slopecorr,9.e-4)
 !   write(0,'(a,4f6.1,4f8.4)')'wind',wind_mn,wind_sd,wind,windc,slopecorr,intercept_corr,unorm(4),resid(4)
 !   read(*,*)
 ! end if
+!-----------------------------------------
+
 
 !-----
 ! check and correct invalid values
@@ -528,17 +538,17 @@ if (tmax+Tfreeze < 0.) then
   stop
 end if
 
-wind = max(0.,wind)
+! wind = max(0.,wind)
 
-cldf = min(max(cldf,0.),1.)
+! cldf = min(max(cldf,0.),1.)
 
 !----- 
-! adjustment to input precision
+! adjustment to input precision is done after the monthly correction step
 
-tmin = roundto(tmin,1)
-tmax = roundto(tmax,1)
-cldf = roundto(cldf,3)
-wind = roundto(wind,2)
+! tmin = roundto(tmin,1)
+! tmax = roundto(tmax,1)
+! cldf = roundto(cldf,3)
+! wind = roundto(wind,2)
 
 !---
 
@@ -613,7 +623,7 @@ if (pday) then  !calculate mean and SD for a wet day
 
   dm%cldf_mn = cldf_w1 / (cldf_w2 * cld + cldf_w3) + cldf_w4
 
-  dm%wind_sd = sum(wind_sd_w * (dm%wind_mn ** [ 0, 1, 2, 3, 4, 5 ]))
+  dm%wind_sd = sum(wind_sd_w * dm%wind_mn**exponents)
 
   dm%cldf_sd = cldf_sd_w * dm%cldf_mn * (1. - dm%cldf_mn)
 
@@ -627,7 +637,7 @@ else  !dry day
 
   dm%cldf_mn = cldf_d1 / (cldf_d2 * cld + cldf_d3) + cldf_d4
 
-  dm%wind_sd = sum(wind_sd_d * (dm%wind_mn ** [ 0, 1, 2, 3, 4, 5 ]))
+  dm%wind_sd = sum(wind_sd_d * dm%wind_mn**exponents)
 
   dm%cldf_sd = cldf_sd_d * dm%cldf_mn * (1. - dm%cldf_mn)
 
@@ -725,7 +735,7 @@ end subroutine rmsmooth
 
 !-----------------------------------------------------------------------
 
-real(sp) function roundto(val,precision)
+function roundto_s(val,precision)
 
 ! round a value to the given precision
 
@@ -734,15 +744,40 @@ implicit none
 real(sp), intent(in) :: val        ! the input value
 integer,  intent(in) :: precision  ! the precision
 
+real(sp) :: roundto_s
+
 real(sp) :: scale
 
 !----
 
 scale = 10.**precision
 
-roundto = real(nint(val * scale)) / scale
+roundto_s = real(nint(val * scale)) / scale
 
-end function roundto
+end function roundto_s
+
+!---------------------------------------------------------
+
+function roundto_v(val,precision)
+
+! round a value to the given precision
+
+implicit none
+
+real(sp), dimension(:), intent(in) :: val        ! the input value
+integer,                intent(in) :: precision  ! the precision
+
+real(sp), dimension(size(val)) :: roundto_v
+
+real(sp) :: scale
+
+!----
+
+scale = 10.**precision
+
+roundto_v = real(nint(val * scale)) / scale
+
+end function roundto_v
 
 !---------------------------------------------------------
 

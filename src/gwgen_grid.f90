@@ -14,7 +14,7 @@ use errormod,      only : ncstat,netcdf_err
 use coordsmod,     only : coordstring,bounds,parsecoords,calcpixels
 use geohashmod,    only : geohash
 use randomdistmod, only : ran_seed
-use weathergenmod, only : metvars_in, metvars_out, weathergen,rmsmooth
+use weathergenmod, only : metvars_in, metvars_out, weathergen,rmsmooth,roundto
 use netcdf
 
 implicit none
@@ -632,13 +632,13 @@ do j = 1,cnty
 !           write(0,'(a,i5,2f6.1,f8.4)')'precip and correction factor',ndm,pre(1,1,t),mprec_sim,pre(1,1,t)/mprec_sim
 !         end if
 
-        mtmin_sim = sum(month_met(1:ndm)%tmin)/ndm
-        mtmax_sim = sum(month_met(1:ndm)%tmax)/ndm
-        mcldf_sim  = sum(month_met(1:ndm)%cldf)/ndm
-        mwind_sim  = sum(month_met(1:ndm)%wind)/ndm
+        mtmin_sim = sum(month_met(1:ndm)%tmin) / ndm
+        mtmax_sim = sum(month_met(1:ndm)%tmax) / ndm
+        mcldf_sim = sum(month_met(1:ndm)%cldf) / ndm
+        mwind_sim = sum(month_met(1:ndm)%wind) / ndm
         
         if (mprec_sim == 0.) then
-          if (pre(1,1,t) > 0.) stop 'error in precip amount'
+          if (pre(1,1,t) > 0.) stop 'simulated monthly prec = 0 but input prec > 0'
           prec_corr = 1.
         else
           prec_corr = pre(1,1,t) / mprec_sim
@@ -646,20 +646,36 @@ do j = 1,cnty
 
         tmin_corr = mtmin(1,1,t) - mtmin_sim
         tmax_corr = mtmax(1,1,t) - mtmax_sim
-        cldf_corr = cld(1,1,t) - mcldf_sim
-        
-        if (mwind_sim > 0.) then
-          wind_corr = wnd(1,1,t) / mwind_sim
+
+        if (mcldf_sim == 0.) then
+          if (cld(1,1,t) > 0.) stop 'simulated monthly cloud = 0 but input cloud > 0'
+          cldf_corr = 1.
         else
+          cldf_corr = cld(1,1,t) / mcldf_sim
+        end if
+        
+        if (mwind_sim == 0.) then
+          if (wnd(1,1,t) > 0.) stop 'simulated monthly wind = 0 but input wind > 0'
           wind_corr = 1.
+        else
+          wind_corr = wnd(1,1,t) / mwind_sim
         end if
 
         month_met(1:ndm)%prec = month_met(1:ndm)%prec * prec_corr
         month_met(1:ndm)%tmin = month_met(1:ndm)%tmin + tmin_corr
         month_met(1:ndm)%tmax = month_met(1:ndm)%tmax + tmax_corr
-        month_met(1:ndm)%cldf = min(max(month_met(1:ndm)%cldf + cldf_corr,0.),1.)     
-        month_met(1:ndm)%wind = month_met(1:ndm)%wind * wind_corr
+        month_met(1:ndm)%cldf = month_met(1:ndm)%cldf * cldf_corr
+        ! month_met(1:ndm)%wind = month_met(1:ndm)%wind * wind_corr
         
+        month_met(1:ndm)%cldf = min(max(month_met(1:ndm)%cldf,0.),1.)
+        month_met(1:ndm)%wind = max(month_met(1:ndm)%wind,0.)
+        
+        month_met(1:ndm)%prec = roundto(month_met(1:ndm)%prec,1)
+        month_met(1:ndm)%tmin = roundto(month_met(1:ndm)%tmin,1)
+        month_met(1:ndm)%tmax = roundto(month_met(1:ndm)%tmax,1)
+        month_met(1:ndm)%cldf = roundto(month_met(1:ndm)%cldf,3)
+        month_met(1:ndm)%wind = roundto(month_met(1:ndm)%wind,2)
+
         ! write(0,'(a,3f6.1)')'precip',pre(1,1,t),mprec_sim,prec_corr
 
         !-----------------------------------------------------------
@@ -679,7 +695,7 @@ do j = 1,cnty
           do outd = 1,ndaymonth(calyr,m)
 
             ! FINAL OUTPUT WRITE STATEMENT
-            write(*,'(5i5, 15f9.2)')i,j,calyr, m, outd,&
+            write(*,'(5i5, 15f11.4)')i,j,calyr, m, outd,&
             mtmin(1,1,t), mtmax(1,1,t), tmp(1,1,t), cld(1,1,t), wnd(1,1,t), pre(1,1,t), &
             tmin_sm(d0+outd-1), tmax_sm(d0+outd-1), (cld_sm(d0+outd-1)), wnd_sm(d0+outd-1), &                               ! met_in%cldf, met_in%wind,&
             month_met(outd)%tmin, month_met(outd)%tmax, month_met(outd)%cldf, month_met(outd)%wind, month_met(outd)%prec
