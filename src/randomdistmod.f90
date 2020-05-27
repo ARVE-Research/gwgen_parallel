@@ -121,10 +121,10 @@ xs   => state%xs
 !---
 
 if (indx <= qsiz) then
-    supr = q(indx)
-    indx = indx + 1
+  supr = q(indx)
+  indx = indx + 1
 else                     !reset the generator
-    supr = refill(state)
+  supr = refill(state)
 end if
 
 !---

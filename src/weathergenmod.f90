@@ -198,14 +198,14 @@ real(sp), parameter :: cld_sd_w1 =  0.988122524524  ! *a* parameter for std. dev
 real(sp), parameter :: cld_sd_d1 =  1.04479456802   ! *a* parameter for std. dev. of cloud fit on dry days
 
 real(sp), parameter :: cldf_w1   =  -cldf_w - 1.
-real(sp), parameter :: cldf_w2   =   cldf_w * cldf_w
-real(sp), parameter :: cldf_w3   = -(cldf_w * cldf_w) - cldf_w
+real(sp), parameter :: cldf_w2   =   cldf_w**2
+real(sp), parameter :: cldf_w3   = -(cldf_w**2) - cldf_w
 real(sp), parameter :: cldf_w4   = -1. / cldf_w
 real(sp), parameter :: cldf_sd_w = cld_sd_w1**2
 
 real(sp), parameter :: cldf_d1   =  -cldf_d - 1.
-real(sp), parameter :: cldf_d2   =   cldf_d * cldf_d
-real(sp), parameter :: cldf_d3   = -(cldf_d * cldf_d) - cldf_d
+real(sp), parameter :: cldf_d2   =   cldf_d**2
+real(sp), parameter :: cldf_d3   = -(cldf_d**2) - cldf_d
 real(sp), parameter :: cldf_d4   = -1./cldf_d
 real(sp), parameter :: cldf_sd_d = cld_sd_d1**2
 
@@ -355,6 +355,14 @@ wind_sd => dmetvars%wind_sd
 !     b(:, 4) = [0.0, 0.0, 0.0, 0.73288315]
 
 
+! write(0,*)'A and B matrices'
+! do i = 1,4
+!   write(0,*)a(:,i)
+! end do
+! do i = 1,4
+!   write(0,*)b(:,i)
+! end do
+! stop
 
 !-----------------------------------------------------------
 !1) Precipitation occurrence
@@ -501,11 +509,24 @@ cldf = resid(3) * cldf_sd + cldf_mn
 !-----------------------------------------
 ! wind speed and wind bias correction
 
+! Philipp's original method
+
+! wind = max(0.0, resid(4) * sqrt(max(0.0, wind_sd)) + sqrt(max(0.0, wind_mn)))
+! 
+! wind = roundto(wind * wind, 1)
+
+! alternate method by Jed
+
 wind_sd = max(wind_sd,0.)
 wind_mn = max(wind_mn,0.)
 
-wind = (resid(4) * sqrt(wind_sd) + sqrt(wind_mn))**2
-! wind = (resid(4) * sqrt(wind_sd))**2 + wind_mn
+! NB the max() here is required, otherwise the results are incorrect
+
+wind = max(resid(4) * sqrt(wind_sd) + sqrt(wind_mn),0.) 
+
+wind = roundto(wind**2,1)
+
+!-----------------------------------------------
 
 slopecorr = sum(wind_slope_bias_coeffs * (max(wind_bias_min,min(wind_bias_max,resid(4)))**exponents))
 
@@ -514,12 +535,12 @@ slopecorr = sum(wind_slope_bias_coeffs * (max(wind_bias_min,min(wind_bias_max,re
 intercept_corr = exp(wind_intercept_bias_b + wind_intercept_bias_a * max(wind_bias_min,min(wind_bias_max,resid(4))))
 ! intercept_corr = sum(wind_intercept_bias_coeffs * (max(wind_bias_min,min(wind_bias_max,resid(4)))**exponents))
 
-! windc = (wind - intercept_corr) / max(slopecorr,9.e-4)
+windc = (wind - intercept_corr) / max(slopecorr,9.e-4)
 
-! wind = windc
+wind = windc
 
 ! if (windc > 2. * wind_mn) then
-!   write(0,'(a,4f6.1,4f8.4)')'wind',wind_mn,wind_sd,wind,windc,slopecorr,intercept_corr,unorm(4),resid(4)
+!   write(0,'(a,4f8.3,4f8.4)')'wind',wind_mn,wind_sd,wind,windc,slopecorr,intercept_corr,unorm(4),resid(4)
 !   read(*,*)
 ! end if
 !-----------------------------------------
@@ -538,9 +559,9 @@ if (tmax+Tfreeze < 0.) then
   stop
 end if
 
-! wind = max(0.,wind)
+wind = max(0.,wind)
 
-! cldf = min(max(cldf,0.),1.)
+cldf = min(max(cldf,0.),1.)
 
 !----- 
 ! adjustment to input precision is done after the monthly correction step
@@ -643,7 +664,7 @@ else  !dry day
 
 end if
 
-call temp_sd(pday, dm)
+call temp_sd(pday,dm)
 
 end subroutine meansd
 
@@ -800,11 +821,11 @@ do i=1,4
 
     if (pday) then
     
-      dm%tmin_sd = sum(tmin_sd_w(i,:) * (dm%tmin_mn**exponents))  !the vector 'exponents' is a clever way of calculating a polynomial expansion
+      dm%tmin_sd = sum(tmin_sd_w(i,:) * dm%tmin_mn**exponents)  !the vector 'exponents' is a clever way of calculating a polynomial expansion
 
     else
 
-      dm%tmin_sd = sum(tmin_sd_d(i,:) * (dm%tmin_mn**exponents))
+      dm%tmin_sd = sum(tmin_sd_d(i,:) * dm%tmin_mn**exponents)
 
     end if
 
@@ -819,11 +840,11 @@ do i=1,4
 
     if (pday) then
 
-      dm%tmax_sd = sum(tmax_sd_w(i, :) * (dm%tmax_mn**exponents))
+      dm%tmax_sd = sum(tmax_sd_w(i, :) * dm%tmax_mn**exponents)
 
     else
 
-      dm%tmax_sd = sum(tmax_sd_d(i, :) * (dm%tmax_mn**exponents))
+      dm%tmax_sd = sum(tmax_sd_d(i, :) * dm%tmax_mn**exponents)
 
     end if
 

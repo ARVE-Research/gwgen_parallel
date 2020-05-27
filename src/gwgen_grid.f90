@@ -94,6 +94,8 @@ integer            :: endyr           ! End year (2010, not set yet)
 integer :: yr    ! Variable year 
 integer :: mon   ! Variable month 
 
+integer :: b
+
 integer, allocatable, dimension(:) :: nd  
 
 ! Variables for the smoothing process
@@ -528,9 +530,9 @@ do j = 1,cnty
         
         ndm = d1 - d0 + 1
         
-        ! restrict simulated total monthly precip to +/-5% or 0.5 mm of observed value
+        ! restrict simulated total monthly precip to +/-10% or 1 mm of observed value
 
-        prec_t = max(0.5,0.05 * pre(i,j,t))
+        prec_t = max(1.,0.1 * pre(i,j,t))
 
         i_count = 0
 
@@ -595,11 +597,15 @@ do j = 1,cnty
             
           end if
 
-          pdaydiff = abs(wet(i,j,t) - mwetd_sim)
-          precdiff = abs(pre(i,j,t) - mprec_sim)
+          pdaydiff = abs(mwetd_sim - wet(i,j,t))
+          
+          precdiff = (mprec_sim - pre(i,j,t)) / pre(i,j,t)
+          
+!           write(0,*)precdiff
+!           read(*,*)
 
-          ! if (pdaydiff <= wetd_t .and. precdiff <= prec_t) then
-          if (pdaydiff <= wetd_t) then
+          if (pdaydiff <= wetd_t .and. precdiff <= prec_t) then
+!           if (pdaydiff <= wetd_t) then
           
             write(0,'(2i5,a,i4,a)')yr,m,' exiting after',i_count,' iterations'
 
@@ -636,7 +642,7 @@ do j = 1,cnty
         mtmax_sim = sum(month_met(1:ndm)%tmax) / ndm
         mcldf_sim = sum(month_met(1:ndm)%cldf) / ndm
         mwind_sim = sum(month_met(1:ndm)%wind) / ndm
-        
+                
         if (mprec_sim == 0.) then
           if (pre(1,1,t) > 0.) stop 'simulated monthly prec = 0 but input prec > 0'
           prec_corr = 1.
@@ -665,7 +671,7 @@ do j = 1,cnty
         month_met(1:ndm)%tmin = month_met(1:ndm)%tmin + tmin_corr
         month_met(1:ndm)%tmax = month_met(1:ndm)%tmax + tmax_corr
         month_met(1:ndm)%cldf = month_met(1:ndm)%cldf * cldf_corr
-        ! month_met(1:ndm)%wind = month_met(1:ndm)%wind * wind_corr
+        month_met(1:ndm)%wind = month_met(1:ndm)%wind * wind_corr
         
         month_met(1:ndm)%cldf = min(max(month_met(1:ndm)%cldf,0.),1.)
         month_met(1:ndm)%wind = max(month_met(1:ndm)%wind,0.)
@@ -691,17 +697,17 @@ do j = 1,cnty
     
         calyr = yr+startyr-1
 
-        if (calyr > 1991 .and. calyr <= 2000) then
+!         if (calyr > 1991 .and. calyr <= 2000) then
           do outd = 1,ndaymonth(calyr,m)
 
             ! FINAL OUTPUT WRITE STATEMENT
-            write(*,'(5i5, 15f11.4)')i,j,calyr, m, outd,&
-            mtmin(1,1,t), mtmax(1,1,t), tmp(1,1,t), cld(1,1,t), wnd(1,1,t), pre(1,1,t), &
+            write(*,'(5i5, 16f11.4)')i,j,calyr, m, outd,&
+            mtmin(1,1,t), mtmax(1,1,t), tmp(1,1,t), cld(1,1,t), wnd(1,1,t), pre(1,1,t), wet(1,1,t), &
             tmin_sm(d0+outd-1), tmax_sm(d0+outd-1), (cld_sm(d0+outd-1)), wnd_sm(d0+outd-1), &                               ! met_in%cldf, met_in%wind,&
             month_met(outd)%tmin, month_met(outd)%tmax, month_met(outd)%cldf, month_met(outd)%wind, month_met(outd)%prec
 
           end do
-        end if
+!         end if
 
       end do  ! month loop
     end do    ! year loop
