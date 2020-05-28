@@ -72,6 +72,12 @@ real(sp), allocatable, dimension(:,:,:) :: mtmin      ! maximum monthly temperat
 real(sp), allocatable, dimension(:,:,:) :: mtmax      ! monthly minimum temperature (degC)
 real(sp), allocatable, dimension(:,:,:) :: wetf       ! fraction of wet days in a month
 
+
+! output variable
+
+real(sp), allocatable, dimension(:,:) :: abstmin      ! absolute minimum temperature (degC)
+
+
 real(sp) :: scale_factor      ! Value for the calculation of the "real" value of the parameters. Can be found in the netCDF file
 real(sp) :: add_offset        ! Value for the calculation of the "real" value of the parameters. Can be found in the netCDF file
 integer(i2) :: missing_value  ! Missing values in the input file
@@ -94,7 +100,7 @@ integer            :: endyr           ! End year (2010, not set yet)
 integer :: yr    ! Variable year 
 integer :: mon   ! Variable month 
 
-integer :: b
+! integer :: b
 
 integer, allocatable, dimension(:) :: nd  
 
@@ -460,6 +466,13 @@ do j = 1,cnty                                        ! Do, for every year j in a
 end do
 
 !---------------------------------------------------------------------
+! create a netCDF output file with the dimensions of the area of interest
+
+allocate(abs_tmin(cntx,cnty))
+
+abs_tmin = -9999.
+
+!---------------------------------------------------------------------
 ! grid loop starts here
 
 do j = 1,cnty
@@ -697,20 +710,28 @@ do j = 1,cnty
     
         calyr = yr+startyr-1
 
-!         if (calyr > 1991 .and. calyr <= 2000) then
-          do outd = 1,ndaymonth(calyr,m)
-
-            ! FINAL OUTPUT WRITE STATEMENT
-            write(*,'(5i5, 16f11.4)')i,j,calyr, m, outd,&
-            mtmin(1,1,t), mtmax(1,1,t), tmp(1,1,t), cld(1,1,t), wnd(1,1,t), pre(1,1,t), wet(1,1,t), &
-            tmin_sm(d0+outd-1), tmax_sm(d0+outd-1), (cld_sm(d0+outd-1)), wnd_sm(d0+outd-1), &                               ! met_in%cldf, met_in%wind,&
-            month_met(outd)%tmin, month_met(outd)%tmax, month_met(outd)%cldf, month_met(outd)%wind, month_met(outd)%prec
-
-          end do
+!         if (calyr >= 1991 .and. calyr <= 2000) then
+!           do outd = 1,ndaymonth(calyr,m)
+! 
+!             ! FINAL OUTPUT WRITE STATEMENT
+!             write(*,'(5i5, 16f11.4)')i,j,calyr, m, outd,&
+!             mtmin(1,1,t), mtmax(1,1,t), tmp(1,1,t), cld(1,1,t), wnd(1,1,t), pre(1,1,t), wet(1,1,t), &
+!             tmin_sm(d0+outd-1), tmax_sm(d0+outd-1), (cld_sm(d0+outd-1)), wnd_sm(d0+outd-1), &                               ! met_in%cldf, met_in%wind,&
+!             month_met(outd)%tmin, month_met(outd)%tmax, month_met(outd)%cldf, month_met(outd)%wind, month_met(outd)%prec
+! 
+!           end do
 !         end if
 
       end do  ! month loop
+      
+      tmin_sim = minval(month_met(1:ndm)%tmin)
+      
+      abs_tmin(i,j)
+      
     end do    ! year loop
+    
+!     write out calculated values
+    
   end do      ! columns
 end do        ! rows
 
