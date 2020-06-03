@@ -8,13 +8,15 @@ program gwgen_grid
 
 ! Terminal command line: ./gwgen_grid ~/path/to/input.file x_coordinate/y_coordinate
 
-! List of modules that will be used and the variables within these modules that will be used in this script:
+! List of modules that will be used and the variables within these modules that are used in this program:
+
 use parametersmod, only : sp,dp,i4,i2,so,ndaymonth
 use errormod,      only : ncstat,netcdf_err
-use coordsmod,     only : coordstring,bounds,parsecoords,calcpixels
+use coordsmod,     only : coordstring,index,parsecoords,calcpixels
 use geohashmod,    only : geohash
 use randomdistmod, only : ran_seed
 use weathergenmod, only : metvars_in, metvars_out, weathergen,rmsmooth,roundto
+use outputmod,     only : genoutfile,putlonlat
 use netcdf
 
 implicit none
@@ -22,6 +24,7 @@ implicit none
 ! Inquire about the dimensions of the input file
 
 character(100) :: infile               ! input file name
+character(100) :: outfile
 
 integer :: xlen                        ! length of dimension 'lat'
 integer :: ylen                        ! length of dimension 'long'
@@ -32,6 +35,7 @@ integer :: tlen                        ! length of dimension 'time'
 integer :: ifid                        ! Input file ID
 integer :: dimid                       ! Dimension ID
 integer :: varid                       ! Variable ID
+integer :: ofid                        ! output file ID
 
 ! Allocatable arrays for longitude and latitude
 
@@ -39,17 +43,14 @@ real(dp), allocatable, dimension(:) :: lon
 real(dp), allocatable, dimension(:) :: lat          
 real(dp), allocatable, dimension(:) :: time
 
-integer, dimension(2) :: xpos
-integer, dimension(2) :: ypos
-
-
 ! Start values of x and y (LLC), and counts of cells in both directions: 
 
-integer :: srtx                        
-integer :: srty                        
-integer :: cntx                        
-integer :: cnty                        
+type(index), target :: id
 
+integer, pointer :: srtx                        
+integer, pointer :: srty                        
+integer, pointer :: cntx                        
+integer, pointer :: cnty                        
 
 ! Array to store the input attributes
 
@@ -72,11 +73,11 @@ real(sp), allocatable, dimension(:,:,:) :: mtmin      ! maximum monthly temperat
 real(sp), allocatable, dimension(:,:,:) :: mtmax      ! monthly minimum temperature (degC)
 real(sp), allocatable, dimension(:,:,:) :: wetf       ! fraction of wet days in a month
 
-
 ! output variable
 
-real(sp), allocatable, dimension(:,:) :: abstmin      ! absolute minimum temperature (degC)
+real(sp), allocatable, dimension(:,:) :: abs_tmin      ! absolute minimum temperature (degC)
 
+real(sp) :: tmin_sim
 
 real(sp) :: scale_factor      ! Value for the calculation of the "real" value of the parameters. Can be found in the netCDF file
 real(sp) :: add_offset        ! Value for the calculation of the "real" value of the parameters. Can be found in the netCDF file
@@ -91,11 +92,6 @@ integer :: d0
 integer :: d1
 integer :: calyr
 integer :: ndm
-
-integer, parameter :: nmos = 12   ! Number of months
-
-integer, parameter :: startyr = 1871  ! Start year set to 1871
-integer            :: endyr           ! End year (2010, not set yet)
 
 integer :: yr    ! Variable year 
 integer :: mon   ! Variable month 
@@ -158,8 +154,27 @@ real(sp) :: tmax_corr
 real(sp) :: cldf_corr
 real(sp) :: wind_corr
 
-!--------------------------------------------------------------------------------------------------------------------------------------------------
+character(60) :: basedate
+character(60) :: date0
+character(60) :: date1
+
+integer :: t0
+integer :: t1
+integer :: cntt
+
+integer, parameter :: baseyr  = 1871
+integer, parameter :: startyr = 1961
+integer, parameter :: calcyrs = 30
+
+integer :: endyr
+
+!-----------------------------------------------------------------------------------------------------------------------------------------
 ! program starts here
+
+srtx => id%startx
+srty => id%starty
+cntx => id%countx
+cnty => id%county
 
 !-----------------------------------------------------
 ! INPUT: Read dimension IDs and lengths of dimensions
@@ -208,11 +223,21 @@ if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 ncstat = nf90_get_var(ifid,varid,lat)                    ! Get variable values for latitude
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_inq_varid(ifid,"time",varid)               ! Get variable ID for latitude
+ncstat = nf90_inq_varid(ifid,"time",varid)               ! Get variable ID for time
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)      
 
-ncstat = nf90_get_var(ifid,varid,time)                   ! Get variable values for latitude
+ncstat = nf90_get_var(ifid,varid,time)                   ! Get variable values for time
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_get_att(ifid,varid,'units',basedate)
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+!----------------------------------------------------
+! to limit memory usage, only get as much data in the time dimension as we need for the run
+
+t0 = 1 + 12 * (startyr - baseyr)
+t1 = t0 + 12 * calcyrs - 1
+cntt = 12 * calcyrs
 
 !----------------------------------------------------
 ! Read the coordinates to run from the command line,
@@ -223,12 +248,12 @@ if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 ! Read the second argument in the command line (coordinates in lat/long format divided by /)
 call getarg(2,coordstring)                        
 
-call parsecoords(coordstring,bounds)
+call parsecoords(coordstring,id)
 
-call calcpixels(lon,lat,bounds,xpos,ypos,srtx,srty,cntx,cnty)
+call calcpixels(lon,lat,id)
 
 ! Allocate space in input array 'var_in' (x-range, y-range and temporal range)
-allocate(var_in(cntx,cnty,tlen))
+allocate(var_in(cntx,cnty,cntt))
 
 ! reallocate coordinate variables to only hold the selected subset of the grid and get the data
 deallocate(lon)
@@ -259,13 +284,13 @@ valid_pixel = .true.
 ! read the timeseries of monthly temperature
 
 ! Allocate space of area of interest and temporal range to tmp array (mean monthly temperature)
-allocate(tmp(cntx,cnty,tlen))
+allocate(tmp(cntx,cnty,cntt))
 
 ncstat = nf90_inq_varid(ifid,"tmp",varid)                         ! Get variable ID of variable tmp 
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 ! Get values for variable tmp from input file, starting at the starting point and going for cnt x and y cells
-ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,1],count=[cntx,cnty,tlen])
+ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,t0],count=[cntx,cnty,cntt])
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 ncstat = nf90_get_att(ifid,varid,"missing_value",missing_value)   ! Get attribute 'missing value' in the variable temperature
@@ -285,13 +310,13 @@ where (var_in(:,:,1) == missing_value) valid_pixel = .false.
 !---------------------------------------------------------------------
 ! read the timeseries of monthly diurnal temperature range
 
-allocate(dtr(cntx,cnty,tlen))                                     ! Allocate space to array dtr
+allocate(dtr(cntx,cnty,cntt))                                     ! Allocate space to array dtr
 
 ncstat = nf90_inq_varid(ifid,"dtr",varid)                         ! Get variable ID of variable dtr
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 ! Get values for variable dtr from input file, based on area and time scale of interest
-ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,1],count=[cntx,cnty,tlen])
+ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,t0],count=[cntx,cnty,cntt])
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 ncstat = nf90_get_att(ifid,varid,"missing_value",missing_value)   ! Get attribute 'missing_value'
@@ -309,13 +334,13 @@ where (var_in /= missing_value) dtr = real(var_in) * scale_factor + add_offset
 !---------------------------------------------------------------------
 ! read the timeseries of monthly total precipitation
 
-allocate(pre(cntx,cnty,tlen))                                     ! Allocate space to array pre (precipitation)
+allocate(pre(cntx,cnty,cntt))                                     ! Allocate space to array pre (precipitation)
 
 ncstat = nf90_inq_varid(ifid,"pre",varid)                         ! Get variable ID of variable pre
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 ! Get values for variable pre from input file, based on area and time scale of interest
-ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,1],count=[cntx,cnty,tlen])    
+ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,t0],count=[cntx,cnty,cntt])
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 ncstat = nf90_get_att(ifid,varid,"missing_value",missing_value)   ! Get attribute 'missing_value'
@@ -333,13 +358,13 @@ where (var_in /= missing_value) pre = real(var_in) * scale_factor + add_offset
 !---------------------------------------------------------------------
 ! read the timeseries of number of days with precipitation > 0.1 mm (wet days)
 
-allocate(wet(cntx,cnty,tlen))                                     ! Allocate space to array wet (precipitation)
+allocate(wet(cntx,cnty,cntt))                                     ! Allocate space to array wet (precipitation)
 
 ncstat = nf90_inq_varid(ifid,"wet",varid)                         ! Get variable ID of variable wet
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 ! Get values for variable wet from input file, based on area and time scale of interest
-ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,1],count=[cntx,cnty,tlen])    
+ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,t0],count=[cntx,cnty,cntt])
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 ncstat = nf90_get_att(ifid,varid,"missing_value",missing_value)   ! Get attribute 'missing_value'
@@ -357,13 +382,13 @@ where (var_in /= missing_value) wet = real(var_in) * scale_factor + add_offset
 !---------------------------------------------------------------------
 ! read the timeseries of cloud cover percent
 
-allocate(cld(cntx,cnty,tlen))                                     ! Allocate space to array cld (precipitation) 
+allocate(cld(cntx,cnty,cntt))                                     ! Allocate space to array cld (precipitation) 
 
 ncstat = nf90_inq_varid(ifid,"cld",varid)                         ! Get variable ID of variable cld
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 ! Get values for variable cld from input file, based on area and time scale of interest
-ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,1],count=[cntx,cnty,tlen])
+ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,t0],count=[cntx,cnty,cntt])
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 ncstat = nf90_get_att(ifid,varid,"missing_value",missing_value)   ! Get attribute 'missing_value'
@@ -385,13 +410,13 @@ cld = 0.01 * cld
 !---------------------------------------------------------------------
 ! read the timeseries of windspeed
 
-allocate(wnd(cntx,cnty,tlen))                                     ! Allocate space to array wnd (precipitation) 
+allocate(wnd(cntx,cnty,cntt))                                     ! Allocate space to array wnd (precipitation) 
 
 ncstat = nf90_inq_varid(ifid,"wnd",varid)                         ! Get variable ID of variable wnd
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 ! Get values for variable wnd from input file, based on area and time scale of interest
-ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,1],count=[cntx,cnty,tlen])    
+ncstat = nf90_get_var(ifid,varid,var_in,start=[srtx,srty,t0],count=[cntx,cnty,cntt])
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 ncstat = nf90_get_att(ifid,varid,"missing_value",missing_value)   ! Get attribute 'missing_value'
@@ -409,8 +434,8 @@ where (var_in /= missing_value) wnd = real(var_in) * scale_factor + add_offset
 !---------------------------------------------------------------------
 ! allocate space and calculate the derivative variables monthly tmin and tmax
 
-allocate(mtmin(cntx,cnty,tlen))
-allocate(mtmax(cntx,cnty,tlen))
+allocate(mtmin(cntx,cnty,cntt))
+allocate(mtmax(cntx,cnty,cntt))
 
 mtmin = tmp - 0.5 * dtr
 mtmax = tmp + 0.5 * dtr
@@ -419,24 +444,25 @@ mtmax = tmp + 0.5 * dtr
 ! allocate and calculate the derivative variable wetf
 ! and run some quality control on precip and wet days
 
-allocate(nd(tlen))                                   ! vector containing the number of in every month of the input timeseries
+allocate(nd(cntt))                                   ! vector containing the number of in every month of the input timeseries
+
+endyr = startyr + calcyrs - 1
+
+! apply function ndaymonth to the time series:
 
 i = 1
 
-endyr = startyr + nyrs - 1                           ! Calculate endyr (start year + number of years in time series)
-
-! apply function ndaymonth to the time series:
-do yr = startyr,endyr                                ! Do, for every year from start year to end year
+do yr = startyr,endyr
   do mon = 1,12                                      ! and for every month from 1 to 12
     
-    nd(i) = ndaymonth(yr,mon)                                
-
-    i = i + 1 
+    nd(i) = ndaymonth(yr,mon)
     
+    i = i + 1
+   
   end do
 end do
 
-allocate(wetf(cntx,cnty,tlen))                        
+allocate(wetf(cntx,cnty,cntt))                        
 
 t = 1
 
@@ -470,12 +496,15 @@ end do
 
 allocate(abs_tmin(cntx,cnty))
 
-abs_tmin = -9999.
+abs_tmin = 9999.
 
 !---------------------------------------------------------------------
 ! grid loop starts here
 
 do j = 1,cnty
+
+  write(0,*)'working on row',j
+
   do i = 1,cntx
   
     ! check that this gridcell has valid meteorology
@@ -488,7 +517,9 @@ do j = 1,cnty
 
     ! FINAL OUTPUT WRITE STATEMENT - HEADER:
 
-    ! write(*,'(a)')'X,Y,Year,Month,Day,mtmin,mtmax,mtmean,mcloud,mwind,mprecip,sm_tmin,sm_tmax,sm_cloud_fr,sm_wind,daily_tmin,daily_tmax,daily_cloud_fr,daily_wind,daily_precip'
+    ! write(*,'(a)')'X,Y,Year,Month,Day,mtmin,mtmax,mtmean,mcloud,mwind,mprecip, &
+    !                sm_tmin,sm_tmax,sm_cloud_fr,sm_wind, &
+    !                daily_tmin,daily_tmax,daily_cloud_fr,daily_wind,daily_precip'
 
     !---------------------------------------------------------------------
     ! prepare pseudo-daily smoothed meteorological variables
@@ -518,7 +549,10 @@ do j = 1,cnty
 
     ! start time loop
 
-    do yr = 1,nyrs-1
+    do yr = 1,cntt
+    
+      write(0,*)yr,t0+yr-1
+
       do m = 1,12
 
         t = m + 12 * (yr - 1)
@@ -620,7 +654,7 @@ do j = 1,cnty
           if (pdaydiff <= wetd_t .and. precdiff <= prec_t) then
 !           if (pdaydiff <= wetd_t) then
           
-            write(0,'(2i5,a,i4,a)')yr,m,' exiting after',i_count,' iterations'
+!             write(0,'(2i5,a,i4,a)')yr,m,' exiting after',i_count,' iterations'
 
             exit
 
@@ -648,7 +682,7 @@ do j = 1,cnty
         ! adjust meteorological values to match the input means following Richardson & Wright 1984
         
 !         if (mprec_sim > 0.) then
-!           write(0,'(a,i5,2f6.1,f8.4)')'precip and correction factor',ndm,pre(1,1,t),mprec_sim,pre(1,1,t)/mprec_sim
+!           write(0,'(a,i5,2f6.1,f8.4)')'precip and correction factor',ndm,pre(i,j,t),mprec_sim,pre(i,j,t)/mprec_sim
 !         end if
 
         mtmin_sim = sum(month_met(1:ndm)%tmin) / ndm
@@ -657,27 +691,27 @@ do j = 1,cnty
         mwind_sim = sum(month_met(1:ndm)%wind) / ndm
                 
         if (mprec_sim == 0.) then
-          if (pre(1,1,t) > 0.) stop 'simulated monthly prec = 0 but input prec > 0'
+          if (pre(i,j,t) > 0.) stop 'simulated monthly prec = 0 but input prec > 0'
           prec_corr = 1.
         else
-          prec_corr = pre(1,1,t) / mprec_sim
+          prec_corr = pre(i,j,t) / mprec_sim
         end if
 
-        tmin_corr = mtmin(1,1,t) - mtmin_sim
-        tmax_corr = mtmax(1,1,t) - mtmax_sim
+        tmin_corr = mtmin(i,j,t) - mtmin_sim
+        tmax_corr = mtmax(i,j,t) - mtmax_sim
 
         if (mcldf_sim == 0.) then
-          if (cld(1,1,t) > 0.) stop 'simulated monthly cloud = 0 but input cloud > 0'
+          if (cld(i,j,t) > 0.) stop 'simulated monthly cloud = 0 but input cloud > 0'
           cldf_corr = 1.
         else
-          cldf_corr = cld(1,1,t) / mcldf_sim
+          cldf_corr = cld(i,j,t) / mcldf_sim
         end if
         
         if (mwind_sim == 0.) then
-          if (wnd(1,1,t) > 0.) stop 'simulated monthly wind = 0 but input wind > 0'
+          if (wnd(i,j,t) > 0.) stop 'simulated monthly wind = 0 but input wind > 0'
           wind_corr = 1.
         else
-          wind_corr = wnd(1,1,t) / mwind_sim
+          wind_corr = wnd(i,j,t) / mwind_sim
         end if
 
         month_met(1:ndm)%prec = month_met(1:ndm)%prec * prec_corr
@@ -695,7 +729,7 @@ do j = 1,cnty
         month_met(1:ndm)%cldf = roundto(month_met(1:ndm)%cldf,3)
         month_met(1:ndm)%wind = roundto(month_met(1:ndm)%wind,2)
 
-        ! write(0,'(a,3f6.1)')'precip',pre(1,1,t),mprec_sim,prec_corr
+        ! write(0,'(a,3f6.1)')'precip',pre(i,j,t),mprec_sim,prec_corr
 
         !-----------------------------------------------------------
         
@@ -715,8 +749,8 @@ do j = 1,cnty
 ! 
 !             ! FINAL OUTPUT WRITE STATEMENT
 !             write(*,'(5i5, 16f11.4)')i,j,calyr, m, outd,&
-!             mtmin(1,1,t), mtmax(1,1,t), tmp(1,1,t), cld(1,1,t), wnd(1,1,t), pre(1,1,t), wet(1,1,t), &
-!             tmin_sm(d0+outd-1), tmax_sm(d0+outd-1), (cld_sm(d0+outd-1)), wnd_sm(d0+outd-1), &                               ! met_in%cldf, met_in%wind,&
+!             mtmin(i,j,t), mtmax(i,j,t), tmp(i,j,t), cld(i,j,t), wnd(i,j,t), pre(i,j,t), wet(i,j,t), &
+!             tmin_sm(d0+outd-1), tmax_sm(d0+outd-1), (cld_sm(d0+outd-1)), wnd_sm(d0+outd-1), & ! met_in%cldf, met_in%wind,&
 !             month_met(outd)%tmin, month_met(outd)%tmax, month_met(outd)%cldf, month_met(outd)%wind, month_met(outd)%prec
 ! 
 !           end do
@@ -726,7 +760,7 @@ do j = 1,cnty
       
       tmin_sim = minval(month_met(1:ndm)%tmin)
       
-      abs_tmin(i,j)
+      abs_tmin(i,j) = min(abs_tmin(i,j),tmin_sim)
       
     end do    ! year loop
     
@@ -736,9 +770,26 @@ do j = 1,cnty
 end do        ! rows
 
 !---------------------------------------------------------------------
-! CLOSE INPUT FILE
+
+call getarg(3,outfile)
+
+call genoutfile(outfile,id,[cntx,cnty],ofid)
+
+call putlonlat(ofid,id,lon,lat)
+
+ncstat = nf90_inq_varid(ofid,'abs_tmin',varid)
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_put_var(ofid,varid,abs_tmin)
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+!---------------------------------------------------------------------
+! close files
 
 ncstat = nf90_close(ifid)
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_close(ofid)
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 end program gwgen_grid
