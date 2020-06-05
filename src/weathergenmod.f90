@@ -737,8 +737,8 @@ do i = 1,ni
     end do
 
     !correction for circular conditions when using climatology (do not use for transient simulations)
-    bc(1) = r(ni)
-    bc(2) = r(1)
+    ! bc(1) = r(ni)
+    ! bc(2) = r(1)
 
   end do
 end do
