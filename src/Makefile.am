@@ -7,6 +7,7 @@ gwgen_SOURCES =      \
   statsmod.f90       \
   randomdistmod.f90  \
   weathergenmod.f90  \
+  getdatamod.f90     \
   outputmod.f90      \
   gwgen_grid.f90
 clean-local:

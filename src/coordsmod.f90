@@ -7,8 +7,6 @@ implicit none
 public :: parsecoords
 public :: calcpixels
 
-character(45) :: coordstring
-
 type index
   real(dp)    :: minlon
   real(dp)    :: maxlon
@@ -41,38 +39,49 @@ type(index),  intent(out) :: id
 
 !local variables
 
-real(dp), dimension(4) :: val
-
-character(10), dimension(4) :: cval = '0'
+real(dp),      allocatable, dimension(:) :: val
+character(50), allocatable, dimension(:) :: cval
 
 integer :: i
-integer :: lasti = 1
-integer :: part  = 1
+integer :: last
+integer :: part
+integer :: np
 
 !----
+! takes the input string minus whitespace, converts it to an array of characters and counts occurrences of "/"
+! number of parts = 1 + the number of "/"
+
+np = 1 + count(transfer(coordstring,'a',len_trim(coordstring)) == '/')
+
+allocate(cval(np))
+allocate(val(np))
+
+last = 1
+part = 1
 
 do i=1,len_trim(coordstring)
   if (coordstring(i:i) == '/') then
-    cval(part) = coordstring(lasti:i-1)
-    lasti=i+1
+    cval(part) = coordstring(last:i-1)
+    last = i + 1
     part = part + 1
   end if
 end do
 
-cval(part) = coordstring(lasti:i-1)
+cval(part) = coordstring(last:i-1)
 
 read(cval,*)val
 
-if (part < 4) then
-  val(3)=val(2)
-  val(4)=val(3)
-  val(2)=val(1)
+if (np == 2) then
+  id%minlon = val(1)
+  id%maxlon = val(1)
+  id%minlat = val(2)
+  id%maxlat = val(2)
+else
+  id%minlon = val(1)
+  id%maxlon = val(2)
+  id%minlat = val(3)
+  id%maxlat = val(4)
 end if
-
-id%minlon = val(1)
-id%maxlon = val(2)
-id%minlat = val(3)
-id%maxlat = val(4)
 
 end subroutine parsecoords
 
