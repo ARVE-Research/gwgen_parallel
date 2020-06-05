@@ -479,8 +479,6 @@ end do
 ! this captures the cross correlation between variables and within and internal temporal autocorrelation
 
 resid = matmul(A,resid) + matmul(B,unorm)  !Richardson 1981, eqn 5; WGEN tech report eqn. 3
-! resid = matmul(B,unorm)  !Richardson 1981, eqn 5; WGEN tech report eqn. 3
-! resid = matmul(A,unorm)  !Richardson 1981, eqn 5; WGEN tech report eqn. 3
 
 ! calculate the weather variables as a function of the mean and standard deviation modified by the residual
 
@@ -488,13 +486,6 @@ resid = matmul(A,resid) + matmul(B,unorm)  !Richardson 1981, eqn 5; WGEN tech re
 ! minimum temperature
 
 tmin = resid(1) * tmin_sd + tmin_mn
-
-! if (abs(tmin - tmin_mn) > 2.* tmin_sd) then
-
-!   write(0,'(l3,6f10.4)')pday(1),tmn,tmin_mn,tmin_sd,resid(1),unorm(1),tmin
-!   read(*,*)
-
-! end if
 
 !----- 
 ! maximum temperature
