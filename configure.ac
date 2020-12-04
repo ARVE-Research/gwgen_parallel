@@ -17,12 +17,9 @@ AC_PREFIX_DEFAULT(["`pwd`"])
 
 PKG_CHECK_MODULES([NETCDF], [netcdf-fortran])
 
-PKG_CHECK_VAR([NETCDF_CC], [netcdf-fortran], [ccompiler])
-PKG_CHECK_VAR([NETCDF_FC], [netcdf-fortran], [fcompiler])
-
+PKG_CHECK_VAR([NETCDF_CC],      [netcdf-fortran], [ccompiler])
+PKG_CHECK_VAR([NETCDF_FC],      [netcdf-fortran], [fcompiler])
 PKG_CHECK_VAR([NETCDF_FCFLAGS], [netcdf-fortran], [includedir])
-
-FCFLAGS="$FCFLAGS -I$NETCDF_FCFLAGS"
 
 #------------------------------------------------------------------------
 # Check for the C and Fortran compilers. NOTE that this must come AFTER the netcdf check. 
@@ -36,6 +33,9 @@ AC_PROG_FC( $NETCDF_FC )
 AC_LANG([Fortran])
 AC_FC_SRCEXT(f90)
 
+# ----
+
+FCFLAGS="$FCFLAGS -I$NETCDF_FCFLAGS"
 LDFLAGS="$LDFLAGS $NETCDF_LIBS"
 
 # get the real name of the compiler
