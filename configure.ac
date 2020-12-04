@@ -20,6 +20,10 @@ PKG_CHECK_MODULES([NETCDF], [netcdf-fortran])
 PKG_CHECK_VAR([NETCDF_CC], [netcdf-fortran], [ccompiler])
 PKG_CHECK_VAR([NETCDF_FC], [netcdf-fortran], [fcompiler])
 
+PKG_CHECK_VAR([NETCDF_FCFLAGS], [netcdf-fortran], [includedir])
+
+FCFLAGS="$FCFLAGS -I$NETCDF_FCFLAGS"
+
 #------------------------------------------------------------------------
 # Check for the C and Fortran compilers. NOTE that this must come AFTER the netcdf check. 
 # The netcdf libraries could have been compiled with, for example, Intel C and ifort;
