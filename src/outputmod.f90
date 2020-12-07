@@ -153,6 +153,24 @@ ncstat = nf90_put_att(ofid,varid,'_FillValue',missing_i2)
 if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 
 !----
+!absolute maximum temperature (lon,lat)
+
+ncstat = nf90_def_var(ofid,'abs_tmax',nf90_short,dimids(1:2),varid,chunksizes=chunks(1:2),deflate_level=1,shuffle=.true.)
+if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_put_att(ofid,varid,'long_name','absolute maximum temperature')
+if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_put_att(ofid,varid,'units','degC')
+if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_put_att(ofid,varid,'missing_value',missing_i2)
+if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_put_att(ofid,varid,'_FillValue',missing_i2)
+if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
+
+!----
 
 ncstat = nf90_enddef(ofid)
 if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
@@ -189,11 +207,10 @@ ncstat = nf90_inq_varid(ofid,'lat',varid)
 if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 
 ncstat = nf90_put_var(ofid,varid,lat)
-if (ncstat/=nf90_noerr) call netcdf_err(ncstat)    
+if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 
-end subroutine putlonlat 
+end subroutine putlonlat
 
 !-------------------------------------------------------------------------------------------------
 
 end module outputmod
-

@@ -6,6 +6,9 @@ gwgen_SOURCES =      \
   geohashmod.f90     \
   statsmod.f90       \
   randomdistmod.f90  \
+	nrtype.f90         \
+	nrutil.f90         \
+	newsplinemod.f90 	 \
   weathergenmod.f90  \
   getdatamod.f90     \
   outputmod.f90      \
