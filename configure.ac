@@ -7,23 +7,19 @@ AM_INIT_AUTOMAKE([foreign])
 
 AC_CONFIG_FILES([src/Makefile])
 
+LT_INIT
 AC_CONFIG_MACRO_DIR([m4])
 
 AC_PREFIX_DEFAULT(["`pwd`"])
 
-# Handle netcdf
-AC_PATH_NETCDF
+#------------------------------------------------------------------------
+# check for netCDF (this is required for the program to run)
 
-# For gwgen_grid, the netcdf V4 interface is REQUIRED.
-if test $NETCDF_V4 = "no"; then
-	echo "-------------------------------------------------------------------"
-	echo "gwgen version 2.0 REQUIRES the netcdf library be version 4 or above,"
-	echo "AND installed with HDF-5 support (i.e., the netcdf library must be"
-	echo "compiled with the --enable-netcdf-4 flag). If you don't have netcdf-4"
-	echo "with HDF-5 support, then please install it first before proceeding"
-	echo "-------------------------------------------------------------------"
-	exit -1
-fi
+PKG_CHECK_MODULES([NETCDF], [netcdf-fortran])
+
+PKG_CHECK_VAR([NETCDF_CC],      [netcdf-fortran], [ccompiler])
+PKG_CHECK_VAR([NETCDF_FC],      [netcdf-fortran], [fcompiler])
+PKG_CHECK_VAR([NETCDF_FCFLAGS], [netcdf-fortran], [includedir])
 
 #------------------------------------------------------------------------
 # Check for the C and Fortran compilers. NOTE that this must come AFTER the netcdf check. 
@@ -36,6 +32,18 @@ AC_PROG_CC( $NETCDF_CC )
 AC_PROG_FC( $NETCDF_FC )
 AC_LANG([Fortran])
 AC_FC_SRCEXT(f90)
+
+# ----
+
+FCFLAGS="$FCFLAGS -I$NETCDF_FCFLAGS"
+LDFLAGS="$LDFLAGS $NETCDF_LIBS"
+
+# get the real name of the compiler
+
+FC_REALNAME=$($NETCDF_FC -show | awk '{print $1}')
+
+# ----
+# test if we have MPI
 
 AC_ARG_WITH(mpi, [AS_HELP_STRING([--with-mpi],
     [compile with MPI (parallelization) support. If none is found,
@@ -50,27 +58,6 @@ AX_PROG_FC_MPI([test x"$with_mpi" != xno],[use_mpi=yes],[
     AC_MSG_WARN([No MPI compiler found, won't use MPI.])
   fi
 ])
-
-AC_PATH_NETCDF( )
-
-NETCDF_INCDIR=${NETCDF_CPPFLAGS##-I}
-NETCDF_LIBDIR=${NETCDF_LDFLAGS##-L}
-
-AX_F90_MODULE([netcdfmod], ["netcdf.mod"], [
-  use netcdf
-  status = nf90_close(ncid)
-], [$NETCDF_INCDIR], [$with_netcdfmod], [AC_MSG_ERROR(Can't find netcdf module.)])
-
-save_FCFLAGS=$FCFLAGS
-save_LDFLAGS=$LDFLAGS
-FCFLAGS="$FCFLAGS $F90_MODULE_netcdfmod"
-
-AX_F90_LIBRARY([netcdf], [libnetcdff*], [
-  use netcdf
-  status = nf90_close(ncid)
-], [$NETCDF_LIBDIR], [$with_netcdf], [AC_MSG_ERROR(Can't find netcdf library.)])
-
-LDFLAGS="$LDFLAGS $F90_LIBS_netcdf"
 
 #-----------------------------------------------------------------------
 # set a debugging mode - apparently this is not good usage of autotools
@@ -88,34 +75,27 @@ AC_ARG_ENABLE([debug],
 
 if test "x$enable_debug" = xyes; then
 
-  echo "setting debugging flags"
+  echo "setting debugging flags for $FC_REALNAME"
 
   dnl strip optimization flags from FCFLAGS
 
   changequote({,})
   FCFLAGS=`echo "$FCFLAGS" | $SED -e 's/-O[0-9s]*//g'`
 
-  FCFLAGS=`echo "$FCFLAGS" | $SED -e 's/-g[0-9]*//g'`
+  # this doesn't work because it mangles the pathname on our machine
+  # FCFLAGS=`echo "$FCFLAGS" | $SED -e 's/-g[0-9]*//g'`  
   changequote([,])
-  
-  echo NETCDF_FC $NETCDF_FC
-  echo FCFLAGS $FCFLAGS
-  
-  if [[[ $NETCDF_FC =~ ifort ]]]; then
 
-    echo "setting debugging flags for ifort"
-
-    dnl debugging flags for ifort
+  if test "x$FC_REALNAME" = xifort; then
     
     FCFLAGS="$FCFLAGS -debug -fpe0 -traceback -g -check -check noarg_temp_created -warn all"
 
-  elif test "x$NETCDF_FC" = xgfortran; then
+  elif test "x$FC_REALNAME" = xgfortran; then
   
-    dnl debugging flags for gfortran
-
     FCFLAGS="$FCFLAGS -ffree-line-length-none -finit-local-zero -fcheck=all -ffpe-trap=invalid,zero,overflow,underflow -g -fbacktrace -Wall -pedantic"
 
   else 
+
     dnl  generic debug flags
 
     FCFLAGS="$FCFLAGS -g -O0"
@@ -125,7 +105,6 @@ fi
 
 #-----------------------------------------------------------------------
 
-
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
 
@@ -134,4 +113,3 @@ echo "C compiler:             $NETCDF_CC"
 echo "Fortran compiler:       $NETCDF_FC"
 echo "Fortran compiler flags: $FCFLAGS"
 echo "Linker flags:           $LDFLAGS"
-
