@@ -424,7 +424,7 @@ end do
 allocate(abs_tmin(cntx,cnty))
 allocate(abs_tmax(cntx,cnty))
 
-abs_tmin = 9999.
+abs_tmin = -9999.
 abs_tmax = -9999.
 
 !---------------------------------------------------------------------
@@ -486,7 +486,7 @@ do j = 1,cnty
     if(baddata_check /= 0) cycle
 
     !--- Ressign abs_min vector for minval function after monthloop (Leo)
-    ! abs_tmin(i,j) = 9999.
+    abs_tmin(i,j) = 9999.
 
 
     !---------------------------------------------------------------------
