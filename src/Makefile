@@ -105,9 +105,9 @@ am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am_gwgen_OBJECTS = parametersmod.$(OBJEXT) errormod.$(OBJEXT) \
 	coordsmod.$(OBJEXT) geohashmod.$(OBJEXT) statsmod.$(OBJEXT) \
-	randomdistmod.$(OBJEXT) 	utilitiesmod.$(OBJEXT) \
-	newsplinemod.$(OBJEXT) weathergenmod.$(OBJEXT) \
-	getdatamod.$(OBJEXT) outputmod.$(OBJEXT) gwgen_grid.$(OBJEXT)
+	utilitiesmod.$(OBJEXT) randomdistmod.$(OBJEXT) newsplinemod.$(OBJEXT) \
+	weathergenmod.$(OBJEXT) getdatamod.$(OBJEXT) \
+	outputmod.$(OBJEXT) gwgen_grid.$(OBJEXT)
 gwgen_OBJECTS = $(am_gwgen_OBJECTS)
 gwgen_LDADD = $(LDADD)
 AM_V_lt = $(am__v_lt_$(V))
@@ -182,21 +182,21 @@ CC = gcc
 CCDEPMODE = depmode=none
 CFLAGS = -g -O2
 CPP = gcc -E
-CPPFLAGS = 
+CPPFLAGS =
 CYGPATH_W = echo
 DEFS = -DPACKAGE_NAME=\"gwgen\" -DPACKAGE_TARNAME=\"gwgen\" -DPACKAGE_VERSION=\"0.1\" -DPACKAGE_STRING=\"gwgen\ 0.1\" -DPACKAGE_BUGREPORT=\"jed.kaplan@arve-research.com\" -DPACKAGE_URL=\"\" -DPACKAGE=\"gwgen\" -DVERSION=\"0.1\" -DSTDC_HEADERS=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_MEMORY_H=1 -DHAVE_STRINGS_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_UNISTD_H=1 -DHAVE_DLFCN_H=1 -DLT_OBJDIR=\".libs/\"
 DEPDIR = .deps
 DLLTOOL = false
-DSYMUTIL = 
-DUMPBIN = 
-ECHO_C = 
+DSYMUTIL =
+DUMPBIN =
+ECHO_C =
 ECHO_N = -n
-ECHO_T = 
+ECHO_T =
 EGREP = /usr/bin/grep -E
-EXEEXT = 
+EXEEXT =
 FC = mpifort
 FCFLAGS = -O3 -pg -g -I/home/public/easybuild/software/netCDF-Fortran/4.5.2-gompi-2020a/include
-FCFLAGS_f90 = 
+FCFLAGS_f90 =
 FGREP = /usr/bin/grep -F
 GREP = /usr/bin/grep
 INSTALL = /usr/bin/install -c
@@ -206,42 +206,42 @@ INSTALL_SCRIPT = ${INSTALL}
 INSTALL_STRIP_PROGRAM = $(install_sh) -c -s
 LD = /home/public/easybuild/software/binutils/2.34-GCCcore-9.3.0/bin/ld -m elf_x86_64
 LDFLAGS =  -L/home/public/easybuild/software/netCDF-Fortran/4.5.2-gompi-2020a/lib -lnetcdff
-LIBOBJS = 
-LIBS = 
+LIBOBJS =
+LIBS =
 LIBTOOL = $(SHELL) $(top_builddir)/libtool
-LIPO = 
+LIPO =
 LN_S = ln -s
-LTLIBOBJS = 
-LT_SYS_LIBRARY_PATH = 
+LTLIBOBJS =
+LT_SYS_LIBRARY_PATH =
 MAKEINFO = ${SHELL} /home/terraces/projects/weathergen/gwgen_grid/config/missing makeinfo
 MANIFEST_TOOL = :
 MKDIR_P = /usr/bin/mkdir -p
-MPIFC = 
+MPIFC =
 NETCDF_CC = mpicc
-NETCDF_CFLAGS = 
+NETCDF_CFLAGS =
 NETCDF_FC = mpifort
 NETCDF_FCFLAGS = /home/public/easybuild/software/netCDF-Fortran/4.5.2-gompi-2020a/include
 NETCDF_LIBS = -L/home/public/easybuild/software/netCDF-Fortran/4.5.2-gompi-2020a/lib -lnetcdff
 NM = /home/public/easybuild/software/binutils/2.34-GCCcore-9.3.0/bin/nm -B
-NMEDIT = 
+NMEDIT =
 OBJDUMP = objdump
 OBJEXT = o
-OTOOL = 
-OTOOL64 = 
+OTOOL =
+OTOOL64 =
 PACKAGE = gwgen
 PACKAGE_BUGREPORT = jed.kaplan@arve-research.com
 PACKAGE_NAME = gwgen
 PACKAGE_STRING = gwgen 0.1
 PACKAGE_TARNAME = gwgen
-PACKAGE_URL = 
+PACKAGE_URL =
 PACKAGE_VERSION = 0.1
 PATH_SEPARATOR = :
 PKG_CONFIG = /home/public/easybuild/software/pkg-config/0.29.2-GCCcore-9.3.0/bin/pkg-config
-PKG_CONFIG_LIBDIR = 
+PKG_CONFIG_LIBDIR =
 PKG_CONFIG_PATH = /home/public/easybuild/software/libevent/2.1.11-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/OpenMPI/4.0.3-GCC-9.3.0/lib/pkgconfig:/home/public/easybuild/software/GSL/2.6-GCC-9.3.0/lib/pkgconfig:/home/public/easybuild/software/libdap/3.20.6-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/PCRE/8.44-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/libtirpc/1.2.6-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/X11/20200222-GCCcore-9.3.0/share/pkgconfig:/home/public/easybuild/software/X11/20200222-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/xorg-macros/1.19.2-GCCcore-9.3.0/share/pkgconfig:/home/public/easybuild/software/fontconfig/2.13.92-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/util-linux/2.35-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/freetype/2.10.1-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/libpng/1.6.37-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/expat/2.2.9-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/FFTW/3.3.8-gompi-2020a/lib/pkgconfig:/home/public/easybuild/software/OpenBLAS/0.3.9-GCC-9.3.0/lib/pkgconfig:/home/public/easybuild/software/Python/3.8.2-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/libffi/3.3-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/GMP/6.2.0-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/SQLite/3.31.1-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/Tcl/8.6.10-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/libreadline/8.0-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/bzip2/1.0.8-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/netCDF-Fortran/4.5.2-gompi-2020a/lib/pkgconfig:/home/public/easybuild/software/netCDF/4.7.4-gompi-2020a/lib64/pkgconfig:/home/public/easybuild/software/cURL/7.69.1-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/HDF5/1.10.6-gompi-2020a/lib/pkgconfig:/home/public/easybuild/software/UCX/1.8.0-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/hwloc/2.2.0-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/libpciaccess/0.16-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/libxml2/2.9.10-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/XZ/5.2.5-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/numactl/2.0.13-GCCcore-9.3.0/lib/pkgconfig:/home/public/easybuild/software/zlib/1.2.11-GCCcore-9.3.0/lib/pkgconfig
 RANLIB = ranlib
 SED = /usr/bin/sed
-SET_MAKE = 
+SET_MAKE =
 SHELL = /bin/sh
 STRIP = strip
 VERSION = 0.1
@@ -251,16 +251,16 @@ abs_top_builddir = /home/terraces/projects/weathergen/gwgen_grid
 abs_top_srcdir = /home/terraces/projects/weathergen/gwgen_grid
 ac_ct_AR = ar
 ac_ct_CC = gcc
-ac_ct_DUMPBIN = 
+ac_ct_DUMPBIN =
 ac_ct_FC = mpifort
 am__include = include
 am__leading_dot = .
-am__quote = 
+am__quote =
 am__tar = $${TAR-tar} chof - "$$tardir"
 am__untar = $${TAR-tar} xf -
 bindir = ${exec_prefix}/bin
 build = x86_64-pc-linux-gnu
-build_alias = 
+build_alias =
 build_cpu = x86_64
 build_os = linux-gnu
 build_vendor = pc
@@ -271,7 +271,7 @@ docdir = ${datarootdir}/doc/${PACKAGE_TARNAME}
 dvidir = ${docdir}
 exec_prefix = ${prefix}
 host = x86_64-pc-linux-gnu
-host_alias = 
+host_alias =
 host_cpu = x86_64
 host_os = linux-gnu
 host_vendor = pc
@@ -294,7 +294,7 @@ sbindir = ${exec_prefix}/sbin
 sharedstatedir = ${prefix}/com
 srcdir = .
 sysconfdir = ${prefix}/etc
-target_alias = 
+target_alias =
 top_build_prefix = ../
 top_builddir = ..
 top_srcdir = ..
@@ -305,7 +305,7 @@ gwgen_SOURCES = \
   geohashmod.f90     \
   statsmod.f90       \
   randomdistmod.f90  \
-	utilitiesmod.f90   \
+	utilitiesmod			 \
 	newsplinemod.f90 	 \
   weathergenmod.f90  \
   getdatamod.f90     \

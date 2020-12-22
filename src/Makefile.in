@@ -105,15 +105,15 @@ am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am_gwgen_OBJECTS = parametersmod.$(OBJEXT) errormod.$(OBJEXT) \
 	coordsmod.$(OBJEXT) geohashmod.$(OBJEXT) statsmod.$(OBJEXT) \
-	randomdistmod.$(OBJEXT) 	utilitiesmod.$(OBJEXT) \
-	newsplinemod.$(OBJEXT) weathergenmod.$(OBJEXT) \
-	getdatamod.$(OBJEXT) outputmod.$(OBJEXT) gwgen_grid.$(OBJEXT)
+	randomdistmod.$(OBJEXT) newsplinemod.$(OBJEXT) \
+	weathergenmod.$(OBJEXT) getdatamod.$(OBJEXT) \
+	outputmod.$(OBJEXT) gwgen_grid.$(OBJEXT)
 gwgen_OBJECTS = $(am_gwgen_OBJECTS)
 gwgen_LDADD = $(LDADD)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
-am__v_lt_1 =
+am__v_lt_1 = 
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -121,11 +121,11 @@ am__v_P_1 = :
 AM_V_GEN = $(am__v_GEN_@AM_V@)
 am__v_GEN_ = $(am__v_GEN_@AM_DEFAULT_V@)
 am__v_GEN_0 = @echo "  GEN     " $@;
-am__v_GEN_1 =
+am__v_GEN_1 = 
 AM_V_at = $(am__v_at_@AM_V@)
 am__v_at_ = $(am__v_at_@AM_DEFAULT_V@)
 am__v_at_0 = @
-am__v_at_1 =
+am__v_at_1 = 
 DEFAULT_INCLUDES = -I.@am__isrc@
 FCCOMPILE = $(FC) $(AM_FCFLAGS) $(FCFLAGS)
 LTFCCOMPILE = $(LIBTOOL) $(AM_V_lt) --tag=FC $(AM_LIBTOOLFLAGS) \
@@ -133,7 +133,7 @@ LTFCCOMPILE = $(LIBTOOL) $(AM_V_lt) --tag=FC $(AM_LIBTOOLFLAGS) \
 AM_V_FC = $(am__v_FC_@AM_V@)
 am__v_FC_ = $(am__v_FC_@AM_DEFAULT_V@)
 am__v_FC_0 = @echo "  FC      " $@;
-am__v_FC_1 =
+am__v_FC_1 = 
 FCLD = $(FC)
 FCLINK = $(LIBTOOL) $(AM_V_lt) --tag=FC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(FCLD) $(AM_FCFLAGS) $(FCFLAGS) \
@@ -141,7 +141,7 @@ FCLINK = $(LIBTOOL) $(AM_V_lt) --tag=FC $(AM_LIBTOOLFLAGS) \
 AM_V_FCLD = $(am__v_FCLD_@AM_V@)
 am__v_FCLD_ = $(am__v_FCLD_@AM_DEFAULT_V@)
 am__v_FCLD_0 = @echo "  FCLD    " $@;
-am__v_FCLD_1 =
+am__v_FCLD_1 = 
 SOURCES = $(gwgen_SOURCES)
 DIST_SOURCES = $(gwgen_SOURCES)
 am__can_run_installinfo = \
@@ -305,7 +305,7 @@ gwgen_SOURCES = \
   geohashmod.f90     \
   statsmod.f90       \
   randomdistmod.f90  \
-	utilitiesmod.f90   \
+	utilitiesmod			 \
 	newsplinemod.f90 	 \
   weathergenmod.f90  \
   getdatamod.f90     \
@@ -395,7 +395,7 @@ clean-binPROGRAMS:
 	echo " rm -f" $$list; \
 	rm -f $$list
 
-gwgen$(EXEEXT): $(gwgen_OBJECTS) $(gwgen_DEPENDENCIES) $(EXTRA_gwgen_DEPENDENCIES)
+gwgen$(EXEEXT): $(gwgen_OBJECTS) $(gwgen_DEPENDENCIES) $(EXTRA_gwgen_DEPENDENCIES) 
 	@rm -f gwgen$(EXEEXT)
 	$(AM_V_FCLD)$(FCLINK) $(gwgen_OBJECTS) $(gwgen_LDADD) $(LIBS)
 
