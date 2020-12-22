@@ -125,7 +125,7 @@ id%starty = minval(ypos)
 if (id%minlon == id%maxlon .and. id%minlat == id%maxlat) then  !special case, run just one nearest gridcell even if coords were ambiguous
   
   id%countx = 1
-  id%countx = 1
+  id%county = 1
   
 else
 
