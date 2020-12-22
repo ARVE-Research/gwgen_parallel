@@ -35,7 +35,8 @@ AC_FC_SRCEXT(f90)
 
 # ----
 
-FCFLAGS="$FCFLAGS -I$NETCDF_FCFLAGS"
+#FCFLAGS="$FCFLAGS -I$NETCDF_FCFLAGS"
+FCFLAGS="-O3 -pg -g -I$NETCDF_FCFLAGS"	#to include profiling flags (Leo)
 LDFLAGS="$LDFLAGS $NETCDF_LIBS"
 
 # get the real name of the compiler

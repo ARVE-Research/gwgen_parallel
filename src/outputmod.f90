@@ -152,6 +152,9 @@ if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 ncstat = nf90_put_att(ofid,varid,'_FillValue',missing_i2)
 if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 
+ncstat = nf90_put_att(ofid,varid,'scale_factor',0.1)
+if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
+
 !----
 !absolute maximum temperature (lon,lat)
 
@@ -168,6 +171,9 @@ ncstat = nf90_put_att(ofid,varid,'missing_value',missing_i2)
 if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 
 ncstat = nf90_put_att(ofid,varid,'_FillValue',missing_i2)
+if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_put_att(ofid,varid,'scale_factor',0.1)
 if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 
 !----

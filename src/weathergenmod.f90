@@ -348,7 +348,7 @@ wind_sd => dmetvars%wind_sd
 !     a(:, 2) = [0.03119116, 0.13461942, -0.04303678, -0.04305549]
 !     a(:, 3) = [-0.01836789, -0.06865181, 0.59195356, -0.02017241]
 !     a(:, 4) = [0.00087781, -0.04650604, 0.0234441, 0.67185901]
-! 
+!
 !     b(:, 1) = [0.35827493, 0.11247485, 0.14180909, 0.07727885]
 !     b(:, 2) = [0.0, 0.80889378, -0.06030167, -0.01563132]
 !     b(:, 3) = [0.0, 0.0, 0.78463208, 0.06061359]
@@ -390,9 +390,9 @@ if (wetf > 0. .and. pre > 0.) then
 
   ! -----
   ! determine the precipitation state of the current day using the Markov chain approach
-  
+
   u = ranur(rndst)
-  
+
   if (u <= pwet) then  !today is a rain day
 
     pday = eoshift(pday,-1,.true.)
@@ -411,10 +411,10 @@ if (wetf > 0. .and. pre > 0.) then
     !calculate parameters for the distribution function of precipitation amount
 
     pbar = pre / wetd
-    
+
     g_scale = g_scale_coeff * pbar
     g_shape = pbar / g_scale
-        
+
     call gamma_cdf(p_trans,0.,g_scale,g_shape,cdf_thresh)
 
     call gamma_pdf(p_trans,0.,g_scale,g_shape,pdf_thresh)
@@ -429,7 +429,7 @@ if (wetf > 0. .and. pre > 0.) then
       prec = ran_gamma_gp(rndst,.true.,g_shape,g_scale,p_trans,gp_shape,gp_scale)
 
       !simulated precipitation should have no more precision than the input (0.1 mm day-1)
-      
+
       ! if (prec < 0. .or. prec > 2000.) then
       !  write(0,*)'strange precip',prec,g_shape,g_scale,p_trans,gp_shape,gp_scale
       ! end if
@@ -447,7 +447,7 @@ if (wetf > 0. .and. pre > 0.) then
 
     end do
 
-!     prec = roundto(prec,1)    
+!     prec = roundto(prec,1)
 
   else
 
@@ -467,13 +467,15 @@ end if
 
 ! calculate a baseline mean and SD for today's weather dependent on precip status
 
+cld = cld / 100. ! debugging edit (Leo)
+
 call meansd(pday(1),tmn,tmx,cld,wnd,dmetvars)
 
 ! draw four random numbers from a normal distribution
 
 do i = 1,4
   call ran_normal(rndst,unorm(i))
-end do 
+end do
 
 ! calculate today's residuals for weather variables
 ! this captures the cross correlation between variables and within and internal temporal autocorrelation
@@ -482,20 +484,22 @@ resid = matmul(A,resid) + matmul(B,unorm)  !Richardson 1981, eqn 5; WGEN tech re
 
 ! calculate the weather variables as a function of the mean and standard deviation modified by the residual
 
-!----- 
+!-----
 ! minimum temperature
 
 tmin = resid(1) * tmin_sd + tmin_mn
 
-!----- 
+!-----
 ! maximum temperature
 
 tmax = resid(2) * tmax_sd + tmax_mn
 
-!----- 
+!-----
 ! cloud fraction
 
 cldf = resid(3) * cldf_sd + cldf_mn
+
+! write(0,*) cldf, cldf_sd, cldf_mn ! debugging dianostics (Leo)
 
 !-----------------------------------------
 ! wind speed and wind bias correction
@@ -503,7 +507,7 @@ cldf = resid(3) * cldf_sd + cldf_mn
 ! Philipp's original method
 
 ! wind = max(0.0, resid(4) * sqrt(max(0.0, wind_sd)) + sqrt(max(0.0, wind_mn)))
-! 
+!
 ! wind = roundto(wind * wind, 1)
 
 ! alternate method by Jed
@@ -513,7 +517,7 @@ wind_mn = max(wind_mn,0.)
 
 ! NB the max() here is required, otherwise the results are incorrect
 
-wind = max(resid(4) * sqrt(wind_sd) + sqrt(wind_mn),0.) 
+wind = max(resid(4) * sqrt(wind_sd) + sqrt(wind_mn),0.)
 
 wind = roundto(wind**2,1)
 
@@ -554,7 +558,7 @@ wind = max(0.,wind)
 
 cldf = min(max(cldf,0.),1.)
 
-!----- 
+!-----
 ! adjustment to input precision is done after the monthly correction step
 
 ! tmin = roundto(tmin,1)
@@ -811,7 +815,7 @@ do i=1,4
   if (i == 4 .or. dm%tmin_mn <= tmin_sd_breaks(i)) then
 
     if (pday) then
-    
+
       dm%tmin_sd = sum(tmin_sd_w(i,:) * dm%tmin_mn**exponents)  !the vector 'exponents' is a clever way of calculating a polynomial expansion
 
     else

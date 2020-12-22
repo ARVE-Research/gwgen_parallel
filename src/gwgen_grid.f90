@@ -14,12 +14,13 @@ use parametersmod, only : sp,dp,i4,i2,so,ndaymonth
 use errormod,      only : ncstat,netcdf_err
 use coordsmod,     only : index,parsecoords,calcpixels
 use geohashmod,    only : geohash
-use randomdistmod, only : ran_seed
+use randomdistmod,
 use newsplinemod,  only : newspline_all
 use weathergenmod, only : metvars_in, metvars_out, weathergen,rmsmooth,roundto
 use getdatamod,    only : readdata
 use outputmod,     only : genoutfile,putlonlat
 use netcdf
+use mpi
 
 implicit none
 
@@ -76,6 +77,8 @@ real(sp), allocatable, dimension(:) :: wetf       ! fraction of wet days in a mo
 
 real(sp), allocatable, dimension(:,:) :: abs_tmin      ! absolute minimum temperature (degC)
 real(sp), allocatable, dimension(:,:) :: abs_tmax      ! absolute maximum temperature (degC)
+
+integer(i2), allocatable, dimension(:,:) :: outvar    ! Output variable for ncfile output adjusted by scale factor
 
 real(sp) :: tmin_sim
 real(sp) :: tmax_sim
@@ -173,12 +176,17 @@ integer, dimension(3) :: cnt
 
 integer :: nt
 
+! Variables for output write option (Leo)
+character(1) :: write
+integer :: write_opt
+integer :: l
 
-character(1) :: test_spline
-integer :: test_spline_int
-call getarg(5, test_spline)
-test_spline_int = ichar(test_spline) - 48
-print *, 'test_spline_int is', test_spline_int
+!--- Debugging variables (Leo)
+integer :: start_debug, end_debug
+integer :: start_debug2, end_debug2
+integer :: baddata_check
+integer :: k
+
 
 !-----------------------------------------------------------------------------------------------------------------------------------------
 ! program starts here
@@ -187,6 +195,12 @@ srtx => id%startx
 srty => id%starty
 cntx => id%countx
 cnty => id%county
+
+!-----------------------------------------------------
+! Read output writing option (Leo)
+! Input 1 as fifth argument on terminal to write out data (Leo)
+call getarg(5, write)
+write_opt = ichar(write) - 48
 
 !-----------------------------------------------------
 ! INPUT: Read dimension IDs and lengths of dimensions
@@ -402,7 +416,7 @@ do yr = startyr-1,endyr+1
   end do
 end do
 
-write(0,*)cntx,cnty,cntt
+! write(0,*)cntx,cnty,cntt ! Debugging dianostics (Leo)
 
 !---------------------------------------------------------------------
 ! create a netCDF output file with the dimensions of the area of interest
@@ -411,7 +425,7 @@ allocate(abs_tmin(cntx,cnty))
 allocate(abs_tmax(cntx,cnty))
 
 abs_tmin = 9999.
-abs_tmax = 9999.
+abs_tmax = -9999.
 
 !---------------------------------------------------------------------
 ! grid loop starts here
@@ -441,6 +455,40 @@ do j = 1,cnty
     mtmax = tmp(i,j,:) + 0.5 * dtr(i,j,:)
     wetf  = wet(i,j,:) / nd
 
+    !--- Checking bad data (Leo)
+
+    do k = 1,cntt
+
+      if(mtmin(k) < -273.15) then
+
+        write(0,*) 'Messed up min temp. at time slice', k, 'with', mtmin(k), 'degC'
+        write(0,*) 'tmp: ', tmp(i,j,k) !, 'dtr: ', dtr(i,j,k)
+        write(0,*) 'cntx:', i, 'cnty:', j
+
+      end if
+
+    end do
+
+    !--- Cycling bad data (Leo)
+
+    baddata_check = 0
+
+    do k = 1,cntt
+
+      if(mtmin(k) < -273.15) then
+
+        baddata_check = baddata_check + 1
+
+      end if
+
+    end do
+
+    if(baddata_check /= 0) cycle
+
+    !--- Ressign abs_min vector for minval function after monthloop (Leo)
+    ! abs_tmin(i,j) = 9999.
+
+
     !---------------------------------------------------------------------
     ! prepare pseudo-daily smoothed meteorological variables
     ! initialize the smoothing buffer variables with all values from the first month of the input
@@ -460,7 +508,7 @@ do j = 1,cnty
 
     ! start year loop
 
-    yearloop : do yr = 2,calcyrs
+    yearloop : do yr = 2,(calcyrs+1) ! Changed to calcyrs+1 (Leo)
 
       !write(0,*)yr,t0+yr-1
 
@@ -476,9 +524,6 @@ do j = 1,cnty
 
         ! generate pseudo-daily smoothed meteorological variables (using means-preserving algorithm)
 
-        !print *, mtminbuf
-        !print *, bcond_tmin
-
         ! call rmsmooth(mtminbuf,ndbuf,bcond_tmin,tmin_sm(1:sum(ndbuf)))
         ! call rmsmooth(mtmaxbuf,ndbuf,bcond_tmax,tmax_sm(1:sum(ndbuf)))
         ! call rmsmooth(cldbuf,ndbuf,bcond_cld,cld_sm(1:sum(ndbuf)))
@@ -491,7 +536,7 @@ do j = 1,cnty
 
         ! calculcate start and end positons of the current month pseudo-daily buffer
 
-        d0 = sum(ndbuf(-w:-1))+1
+        d0 = sum(ndbuf(-w:-1)) + 1
         d1 = d0 + ndbuf(0) - 1
 
         !print *, d0, d1
@@ -531,6 +576,8 @@ do j = 1,cnty
             met_in%resid = met_out%resid
 
             call weathergen(met_in,met_out)
+
+            ! write(0,*) met_out%cldf ! in fractional form 0 to 1
 
             met_in%rndst = met_out%rndst
             month_met(outd) = met_out    ! save this day into a month holder
@@ -610,6 +657,8 @@ do j = 1,cnty
         tmin_corr = mtmin(t) - mtmin_sim
         tmax_corr = mtmax(t) - mtmax_sim
 
+        mcldf_sim = 100. * mcldf_sim    ! Convert fraction back to percentage (0 to 100) (Leo)
+
         if (mcldf_sim == 0.) then
           if (cld(i,j,t) > 0.) stop 'simulated monthly cloud = 0 but input cloud > 0'
           cldf_corr = 1.
@@ -617,12 +666,24 @@ do j = 1,cnty
           cldf_corr = cld(i,j,t) / mcldf_sim
         end if
 
+        ! if (mwind_sim == 0.) then
+        !   if (wnd(i,j,t) > 0.) stop 'simulated monthly wind = 0 but input wind > 0'
+        !   wind_corr = 1.
+        ! else
+        !   wind_corr = wnd(i,j,t) / mwind_sim
+        ! end if
+
+        !--- Replaced "stop" command for now since only tmin and tmax is wanted (Leo)
         if (mwind_sim == 0.) then
-          if (wnd(i,j,t) > 0.) stop 'simulated monthly wind = 0 but input wind > 0'
-          wind_corr = 1.
+          if (wnd(i,j,t) > 0.) then
+            write(0,*) 'Warning: simulated monthly wind = 0 but input wind > 0'
+            wind_corr = 1.
+          end if
         else
           wind_corr = wnd(i,j,t) / mwind_sim
         end if
+
+        !---
 
         month_met(1:ndm)%prec = month_met(1:ndm)%prec * prec_corr
         month_met(1:ndm)%tmin = month_met(1:ndm)%tmin + tmin_corr
@@ -639,6 +700,110 @@ do j = 1,cnty
         month_met(1:ndm)%cldf = roundto(month_met(1:ndm)%cldf,3)
         month_met(1:ndm)%wind = roundto(month_met(1:ndm)%wind,2)
 
+
+        !--- Write option #1: write out variables input mean, smoothed daily values and simulated daliy values (Leo)
+        if (write_opt == 1) then      ! If argument read from start of program (Leo)
+          do k = d0, d1
+
+            l = k - sum(ndbuf(-w:-1))
+
+            write(*,*) mtminbuf(0), tmin_sm(k), month_met(l)%tmin, &
+                       mtmaxbuf(0), tmax_sm(k), month_met(l)%tmax, &
+                       cldbuf(0), cld_sm(k), 100*month_met(l)%cldf, &
+                       wndbuf(0), wnd_sm(k), month_met(l)%wind
+
+          end do
+        end if
+
+        ! --- Debuggin tmin series error (Leo)
+
+        ! start_debug = sum(ndbuf(-3:-1)) + 1
+        ! end_debug = start_debug + ndbuf(0) - 1
+        !
+        ! write(0,*) 'yr:',yr,'month:',m,'ndm:',ndm, 'check:',size(tmin_sm(start_debug:end_debug)), size(month_met(1:ndm)%tmin)
+        ! write(0,*) 'input mean:',mtminbuf(0),'smoothed:', (sum(tmin_sm(start_debug:end_debug))/ndm), &
+        ! 'simulated mean:', (sum(month_met(1:ndm)%tmin)/ndm)
+        !
+        !
+        ! do k = start_debug, end_debug
+        !
+        !   start_debug2 = k - sum(ndbuf(-3:-1))
+        !   ! end_debug2 = start_debug2 + ndbuf(0) - 1
+        !
+        !   write(*,*) mtminbuf(0), tmin_sm(k), month_met(start_debug2)%tmin
+        ! ! write(0,10) tmin_sm(start_debug:end_debug), month_met(1:ndm)%tmin
+        ! !
+        !   ! 10 format(f6.2, 1x, f6.2, 1x, f6.2)
+        ! end do
+
+        ! --- Debuggin tmin series error (Leo)
+
+        ! start_debug = sum(ndbuf(-3:-1)) + 1
+        ! end_debug = start_debug + ndbuf(0) - 1
+        !
+        ! write(0,*) 'yr:',yr,'month:',m,'ndm:',ndm, 'check:',size(tmax_sm(start_debug:end_debug)), size(month_met(1:ndm)%tmax)
+        ! write(0,*) 'input mean:',mtmaxbuf(0),'smoothed:', (sum(tmax_sm(start_debug:end_debug))/ndm), &
+        ! 'simulated mean:', (sum(month_met(1:ndm)%tmax)/ndm)
+        !
+        !
+        ! do k = start_debug, end_debug
+        !
+        !   start_debug2 = k - sum(ndbuf(-3:-1))
+        !   ! end_debug2 = start_debug2 + ndbuf(0) - 1
+        !
+        !   write(*,*) mtmaxbuf(0), tmax_sm(k), month_met(start_debug2)%tmax
+        ! ! write(0,10) tmin_sm(start_debug:end_debug), month_met(1:ndm)%tmin
+        ! !
+        !   ! 10 format(f6.2, 1x, f6.2, 1x, f6.2)
+        ! end do
+
+
+        ! --- Debuggin cloud series error (Leo)
+
+        ! start_debug = sum(ndbuf(-3:-1)) + 1
+        ! end_debug = start_debug + ndbuf(0) - 1
+        !
+        ! write(0,*) 'yr:',yr,'month:',m,'ndm:',ndm, 'check:',size(cld_sm(start_debug:end_debug)), size(month_met(1:ndm)%cldf)
+        ! write(0,*) 'input mean:',cldbuf(0),'smoothed:', (sum(cld_sm(start_debug:end_debug))/ndm), &
+        ! 'simulated mean:', (sum(100*month_met(1:ndm)%cldf)/ndm)
+
+
+        ! do k = start_debug, end_debug
+        !
+        !   start_debug2 = k - sum(ndbuf(-3:-1))
+        !   ! end_debug2 = start_debug2 + ndbuf(0) - 1
+        !
+        !   write(*,*) cldbuf(0), cld_sm(k), 100*month_met(start_debug2)%cldf
+        ! ! write(0,10) tmin_sm(start_debug:end_debug), month_met(1:ndm)%tmin
+        ! !
+        !   ! 10 format(f6.2, 1x, f6.2, 1x, f6.2)
+        ! end do
+
+        ! --- Debuggin cloud series error (Leo)
+
+        ! start_debug = sum(ndbuf(-3:-1)) + 1
+        ! end_debug = start_debug + ndbuf(0) - 1
+        !
+        ! write(0,*) 'yr:',yr,'month:',m,'ndm:',ndm, 'check:',size(wnd_sm(start_debug:end_debug)), size(month_met(1:ndm)%wind)
+        ! write(0,*) 'input mean:',wndbuf(0),'smoothed:', (sum(wnd_sm(start_debug:end_debug))/ndm), &
+        ! 'simulated mean:', (sum(month_met(1:ndm)%wind)/ndm)
+        !
+        !
+        ! do k = start_debug, end_debug
+        !
+        !   start_debug2 = k - sum(ndbuf(-3:-1))
+        !   ! end_debug2 = start_debug2 + ndbuf(0) - 1
+        !
+        !   write(*,*) wndbuf(0), wnd_sm(k), month_met(start_debug2)%wind
+        ! ! write(0,10) tmin_sm(start_debug:end_debug), month_met(1:ndm)%tmin
+        ! !
+        !   ! 10 format(f6.2, 1x, f6.2, 1x, f6.2)
+        ! end do
+
+
+        !---
+
+
         !-----------------------------------------------------------
         ! add the current monthly values on to the smoothing buffer
         ! write(0,*)cntt,t,w,t+w+1
@@ -654,15 +819,31 @@ do j = 1,cnty
 
         calyr = yr+startyr-1
 
+        !-----------------------------------------------------------
+        ! save the min and max temperature of the month and replace original value (Leo)
+
+        tmin_sim = minval(month_met(1:ndm)%tmin)
+        tmax_sim = maxval(month_met(1:ndm)%tmax)
+
+        abs_tmin(i,j) = min(abs_tmin(i,j),tmin_sim)
+        abs_tmax(i,j) = max(abs_tmax(i,j),tmax_sim)
+
       end do monthloop ! month loop
 
-      tmin_sim = minval(month_met(1:ndm)%tmin)
-      tmax_sim = maxval(month_met(1:ndm)%tmax)
+      ! tmin_sim = minval(month_met(1:ndm)%tmin) ! This original code will only read Dec... (Leo)
+      ! tmax_sim = maxval(month_met(1:ndm)%tmax)
 
-      abs_tmin(i,j) = min(abs_tmin(i,j),tmin_sim)
-      abs_tmax(i,j) = min(abs_tmax(i,j),tmax_sim)
+      ! abs_tmin(i,j) = min(abs_tmin(i,j),tmin_sim)
+      ! abs_tmax(i,j) = max(abs_tmax(i,j),tmax_sim)
+
 
     end do yearloop    ! year loop
+
+    !--- Write option #2: write out all tmin and tmax of individual cells
+    if (write_opt == 2) then
+      write(*,*) abs_tmin(i,j), abs_tmax(i,j)
+    end if
+
   end do      ! columns
 end do        ! rows
 
@@ -679,13 +860,29 @@ call putlonlat(ofid,id,lon,lat)
 ncstat = nf90_inq_varid(ofid,'abs_tmin',varid)
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_put_var(ofid,varid,abs_tmin)
+allocate(outvar(cntx,cnty))
+
+where (abs_tmin /= -9999.)
+  outvar = nint(abs_tmin / 0.1)
+elsewhere
+  outvar = -32768
+end where
+
+ncstat = nf90_put_var(ofid,varid,outvar)
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+!---
 
 ncstat = nf90_inq_varid(ofid,'abs_tmax',varid)
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_put_var(ofid,varid,abs_tmax)
+where (abs_tmax /= -9999.)
+  outvar = nint(abs_tmax / 0.1)
+elsewhere
+  outvar = -32768
+end where
+
+ncstat = nf90_put_var(ofid,varid,outvar)
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 !---------------------------------------------------------------------
