@@ -83,7 +83,7 @@ if (rank == 0) then
 
   info%validcell = sum(cnt)
 
-  call getoutfile(info%outfile, info%validcell)
+  call getoutfile(info)
 
   call infotobyte(info, srt, cnt, ob)
 
@@ -181,6 +181,9 @@ ncstat = nf90_inq_dimid(ifid,'time',dimid)
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 ncstat = nf90_inquire_dimension(ifid,dimid,len=tlen)
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+ncstat = nf90_close(ifid)
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 
