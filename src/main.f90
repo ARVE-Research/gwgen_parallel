@@ -1,5 +1,21 @@
 program main
 
+! Before compiling
+! $ module load netCDF-Fortran/4.5.3-gmpich-2021.01 Autotools pkgconfig
+
+! To compile:
+! $ ./autogen.sh
+! $ ./configure
+! $ make
+
+! To run: program was written to run ALL validcells globally, but number of years can be specified
+! $ module purge              ! because Autotools switched GCC back to 9.3.0. v10.2 is required to run the code
+! $ module load netCDF-Fortran/4.5.3-gmpich-2021.01
+!
+! $ mpirun -np 18 ./src/gwgen /home/terraces/datasets/dgvm_input/climate/transient1871-2010_list-formatted.nc 1990/10 test.nc
+
+
+
 ! Main program to distribute work among cores
 
 use parametersmod, only : i1,i2,i4,sp,dp
