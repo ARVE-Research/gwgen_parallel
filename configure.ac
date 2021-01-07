@@ -22,7 +22,7 @@ PKG_CHECK_VAR([NETCDF_FC],      [netcdf-fortran], [fcompiler])
 PKG_CHECK_VAR([NETCDF_FCFLAGS], [netcdf-fortran], [includedir])
 
 #------------------------------------------------------------------------
-# Check for the C and Fortran compilers. NOTE that this must come AFTER the netcdf check. 
+# Check for the C and Fortran compilers. NOTE that this must come AFTER the netcdf check.
 # The netcdf libraries could have been compiled with, for example, Intel C and ifort;
 # we have to specifically check if the same compiler used to compile the
 # netcdf library exists.
@@ -36,7 +36,7 @@ AC_FC_SRCEXT(f90)
 # ----
 
 #FCFLAGS="$FCFLAGS -I$NETCDF_FCFLAGS"
-FCFLAGS="-O3 -pg -g -I$NETCDF_FCFLAGS"	#to include profiling flags (Leo)
+FCFLAGS="-O3 -pg -g -Wall -fcheck=all -I$NETCDF_FCFLAGS"	#to include profiling flags (Leo)
 LDFLAGS="$LDFLAGS $NETCDF_LIBS"
 
 # get the real name of the compiler
@@ -63,7 +63,7 @@ AX_PROG_FC_MPI([test x"$with_mpi" != xno],[use_mpi=yes],[
 #-----------------------------------------------------------------------
 # set a debugging mode - apparently this is not good usage of autotools
 # but this is not production/distribution software and so being able to
-# easily switch on and off a debugging mode will be useful for students 
+# easily switch on and off a debugging mode will be useful for students
 
 test -z "$SED" && SED=sed
 
@@ -84,24 +84,24 @@ if test "x$enable_debug" = xyes; then
   FCFLAGS=`echo "$FCFLAGS" | $SED -e 's/-O[0-9s]*//g'`
 
   # this doesn't work because it mangles the pathname on our machine
-  # FCFLAGS=`echo "$FCFLAGS" | $SED -e 's/-g[0-9]*//g'`  
+  # FCFLAGS=`echo "$FCFLAGS" | $SED -e 's/-g[0-9]*//g'`
   changequote([,])
 
   if test "x$FC_REALNAME" = xifort; then
-    
+
     FCFLAGS="$FCFLAGS -debug -fpe0 -traceback -g -check -check noarg_temp_created -warn all"
 
   elif test "x$FC_REALNAME" = xgfortran; then
-  
+
     FCFLAGS="$FCFLAGS -ffree-line-length-none -finit-local-zero -fcheck=all -ffpe-trap=invalid,zero,overflow,underflow -g -fbacktrace -Wall -pedantic"
 
-  else 
+  else
 
     dnl  generic debug flags
 
     FCFLAGS="$FCFLAGS -g -O0"
   fi
-  
+
 fi
 
 #-----------------------------------------------------------------------

@@ -11,6 +11,7 @@ gwgen_SOURCES =      \
   weathergenmod.f90  \
   getdatamod.f90     \
   outputmod.f90      \
-  gwgen_grid.f90
+  gwgenmod.f90			 \
+	main.f90
 clean-local:
 	rm -r -f *.mod *.dSYM

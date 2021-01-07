@@ -1,62 +1,61 @@
 module outputmod
 
 use parametersmod, only : i2,i4,sp
+use errormod,      only : ncstat,netcdf_err
+use netcdf
 
 implicit none
 
-public :: genoutfile
+public :: getoutfile
 public :: putlonlat
 
 real(sp),    parameter :: missing_sp = -9999.
 integer(i2), parameter :: missing_i2 = -32768
 
+!--------------------
+
+type infompi
+  character(100) :: infile
+  character(100) :: outfile
+  character(100) :: timestring
+  integer(i4)    :: nproc
+  integer(i4)    :: validcell
+  integer(i4)    :: t0
+  integer(i4)    :: nt
+end type
+
+!--------------------
+
 contains
 
 !-------------------------------------------------------------------------------------------------
 
-subroutine genoutfile(outfile,id,chunks,ofid)
+subroutine getoutfile(outfile,validcell)
 
-use parametersmod, only : i4,sp,dp
-use netcdf
-use errormod,     only : ncstat,netcdf_err
-use coordsmod,    only : index
+character(*), intent(in) :: outfile
+integer(i4) , intent(in) :: validcell
 
-implicit none
+integer :: ofid
+integer :: ncstat
+integer :: varid
+integer :: dimid
 
-character(*),           intent(in)  :: outfile  ! file name
-type(index),            intent(in)  :: id
-integer, dimension(:),  intent(in)  :: chunks
-integer,                intent(out) :: ofid
+integer :: i
 
-!local variables
-
-integer(i4) :: dimid
-integer(i4) :: varid
-
-real(dp), dimension(2) :: xrange
-real(dp), dimension(2) :: yrange
-
-character(8)  :: today
+character(8) :: today
 character(10) :: now
 
-integer(i4), allocatable, dimension(:) :: dimids
+write(0,*) 'Creating outfile'
 
-integer, parameter :: ndims = 3
-
-!---
-
-xrange = [id%minlon,id%maxlon]
-yrange = [id%minlat,id%maxlat]
-
-!---
-
-!write(0,'(a,a)')'creating output file: ',trim(outfile)
-!write(0,*)'create',id%countx,id%county
-
-ncstat = nf90_create(outfile,nf90_hdf5,ofid)
+ncstat = nf90_create(outfile,nf90_netcdf4,ofid)
 if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_put_att(ofid,nf90_global,'title','weathergen output file')
+! ncstat = nf90_create_par(outfile,ior(nf90_netcdf4,nf90_mpiio),MPI_COMM_WORLD,MPI_INFO_NULL,ofid)
+! if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
+
+write(0,*) 'Create outfile: success'
+
+ncstat = nf90_put_att(ofid,nf90_global,'title','weathergen parallel output file')
 if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 
 call date_and_time(today,now)
@@ -70,77 +69,33 @@ if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 ncstat = nf90_put_att(ofid,nf90_global,'node_offset',1)
 if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 
-!write(0,*)'added global atts'
-
-!-----------
-!dimensions
-
-allocate(dimids(ndims))
 
 !----
-! lon
+! index
 
-ncstat = nf90_def_dim(ofid,'lon',id%countx,dimid)
+ncstat = nf90_def_dim(ofid,'index',validcell,dimid)
 if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 
-dimids(1) = dimid
-
-ncstat = nf90_def_var(ofid,'lon',nf90_double,dimid,varid)
+ncstat = nf90_def_var(ofid,'index',nf90_int,dimid,varid)
 if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_put_att(ofid,varid,'long_name','longitude')
+ncstat = nf90_put_var(ofid,varid,(/(i,i=1,validcell,1)/))
 if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_put_att(ofid,varid,'units','degrees_east')
+ncstat = nf90_put_att(ofid,varid,'long_name','index of lon and lat')
 if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_put_att(ofid,varid,'actual_range',xrange)
+ncstat = nf90_put_att(ofid,varid,'units','1 to length')
 if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
+
 
 !----
-! lat
+!absolute minimum temperature
 
-ncstat = nf90_def_dim(ofid,'lat',id%county,dimid)
+ncstat = nf90_def_var(ofid,'abs_tmin',nf90_short,dimid,varid)
 if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 
-dimids(2) = dimid
-
-ncstat = nf90_def_var(ofid,'lat',nf90_double,dimid,varid)
-if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
-
-ncstat = nf90_put_att(ofid,varid,'long_name','latitude')
-if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
-
-ncstat = nf90_put_att(ofid,varid,'units','degrees_north')
-if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
-
-ncstat = nf90_put_att(ofid,varid,'actual_range',yrange)
-if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
-
-!----
-! time
-
-ncstat = nf90_def_dim(ofid,'time',nf90_unlimited,dimid)
-if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
-
-dimids(3) = dimid
-
-ncstat = nf90_def_var(ofid,'time',nf90_float,dimid,varid)
-if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
-
-ncstat = nf90_put_att(ofid,varid,'long_name','time')
-if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
-
-ncstat = nf90_put_att(ofid,varid,'units','days since 1950-01-01')
-if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
-
-!----
-!absolute minimum temperature (lon,lat)
-
-ncstat = nf90_def_var(ofid,'abs_tmin',nf90_short,dimids(1:2),varid,chunksizes=chunks(1:2),deflate_level=1,shuffle=.true.)
-if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
-
-ncstat = nf90_put_att(ofid,varid,'long_name','absolute minimum temperature')
+ncstat = nf90_put_att(ofid,varid,'long_name','test average temperature')
 if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 
 ncstat = nf90_put_att(ofid,varid,'units','degC')
@@ -156,12 +111,12 @@ ncstat = nf90_put_att(ofid,varid,'scale_factor',0.1)
 if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 
 !----
-!absolute maximum temperature (lon,lat)
+!absolute maximum temperature
 
-ncstat = nf90_def_var(ofid,'abs_tmax',nf90_short,dimids(1:2),varid,chunksizes=chunks(1:2),deflate_level=1,shuffle=.true.)
+ncstat = nf90_def_var(ofid,'abs_tmax',nf90_short,dimid,varid)
 if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 
-ncstat = nf90_put_att(ofid,varid,'long_name','absolute maximum temperature')
+ncstat = nf90_put_att(ofid,varid,'long_name','test average temperature')
 if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 
 ncstat = nf90_put_att(ofid,varid,'units','degC')
@@ -181,7 +136,13 @@ if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 ncstat = nf90_enddef(ofid)
 if (ncstat/=nf90_noerr) call netcdf_err(ncstat)
 
-end subroutine genoutfile
+ncstat = nf90_close(ofid)
+if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
+
+write(0,*) 'Finished create outfile'
+
+
+end subroutine getoutfile
 
 !-------------------------------------------------------------------------------------------------
 

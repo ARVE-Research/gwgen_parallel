@@ -18,14 +18,14 @@ implicit none
 
 integer,                    intent(in)  :: ncid
 character(*),               intent(in)  :: varname
-integer, dimension(3),      intent(in)  :: srt
-integer, dimension(3),      intent(in)  :: cnt
-real(sp), dimension(:,:,:), intent(out) :: values
+integer, dimension(2),      intent(in)  :: srt
+integer, dimension(2),      intent(in)  :: cnt
+real(sp), dimension(:,:),   intent(out) :: values
 
 !---
 
-integer, dimension(3) :: s
-integer(i2), allocatable, dimension(:,:,:) :: var_in
+integer, dimension(2) :: s
+integer(i2), allocatable, dimension(:,:) :: var_in
 
 real(sp)    :: scale_factor
 real(sp)    :: add_offset
@@ -36,9 +36,9 @@ integer :: varid
 
 !---
 
-s = [(size(values,dim=i),i=1,3)]
+s = [(size(values,dim=i),i=1,2)]
 
-allocate(var_in(s(1),s(2),s(3)))
+allocate(var_in(s(1),s(2)))
 
 ncstat = nf90_inq_varid(ncid,varname,varid)
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
@@ -55,7 +55,7 @@ if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 ncstat = nf90_get_att(ncid,varid,"add_offset",add_offset)
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
-where (var_in /= missing_value) 
+where (var_in /= missing_value)
   values = real(var_in) * scale_factor + add_offset
 elsewhere
   values = -9999.
