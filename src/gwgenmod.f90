@@ -153,6 +153,8 @@ real(sp) :: precdiff1 = huge(sp)   ! stored value of the difference between inpu
 type(metvars_in)  :: met_in   ! structure containing one day of meteorology input to weathergen
 type(metvars_out) :: met_out  ! structure containing one day of meteorology output from weathergen
 
+type(randomstate), allocatable, dimension(:) :: rndst   ! random state for each gridcell
+
 type(metvars_out), dimension(31) :: month_met  ! buffer containing one month of simulated daily meteorology
 
 real(sp) :: mtmin_sim
@@ -281,20 +283,12 @@ if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 !----------------------------------------------------
 ! Get the buffered start and end of the time dimension of each validpixel
+baseyr = 1871
+startyr = ((t0 - 1) / 12) + baseyr
 
 calcyrs = nt / 12
 
 cntt = 12 * (calcyrs + 2)          ! months, includes one-year buffer on either end
-
-srt = [job(1), t0]
-cnt = [job(2), nt]
-
-allocate(tmp(cnt(1),cntt))
-allocate(dtr(cnt(1),cntt))
-allocate(pre(cnt(1),cntt))
-allocate(wet(cnt(1),cntt))
-allocate(cld(cnt(1),cntt))
-allocate(wnd(cnt(1),cntt))
 
 ! calculate file start and count indices
 
@@ -327,6 +321,16 @@ end if
 
 !---------------------------------------------------------------------
 ! read the timeseries of monthly climate
+
+srt = [job(1), t0]
+cnt = [job(2), nt]
+
+allocate(tmp(cnt(1),cntt))
+allocate(dtr(cnt(1),cntt))
+allocate(pre(cnt(1),cntt))
+allocate(wet(cnt(1),cntt))
+allocate(cld(cnt(1),cntt))
+allocate(wnd(cnt(1),cntt))
 
 call readdata(ifid,'tmp',srt,cnt,tmp(:,p0:p1))
 call readdata(ifid,'dtr',srt,cnt,dtr(:,p0:p1))
@@ -388,13 +392,18 @@ do yr = startyr-1,endyr+1
 end do
 
 !---------------------------------------------------------------------
-! create a netCDF output file with the dimensions of the area of interest
+! allocate the absolute min and max temperature variables
 
 allocate(abs_tmin(cnt(1)))
 allocate(abs_tmax(cnt(1)))
 
 abs_tmin = -9999.
 abs_tmax = -9999.
+
+!---------------------------------------------------------------------
+! allocate the random state array so each gridcell always start with the same rndst
+
+allocate(rndst(cnt(1)))
 
 !---------------------------------------------------------------------
 ! grid loop starts here
@@ -405,7 +414,7 @@ allocate(wetf(cntt))
 
 ll = srt(1)   ! Get the current index value
 
-do i = 1,cnt(1)
+do i = 1, cnt(1)
 
   ! Get the value of lon and lat from index dimension
 
@@ -414,9 +423,13 @@ do i = 1,cnt(1)
   lon_loc = ll_loc(1)
   lat_loc = ll_loc(2)
 
-  call ran_seed(geohash(lon(lon_loc),lat(lat_loc)),met_in%rndst)
+  call ran_seed(geohash(lon(lon_loc),lat(lat_loc)), rndst(i))    ! Get the geohash dependent randomstate
+
+  call ran_seed(ranu(rndst(i)), rndst(i))     ! Randomize the geohash derived state
 
   ll = ll + 1
+
+  met_in%rndst = rndst(i)     ! Assign the random state to the current met_in
 
   !---------------------------------------------------------------------
   ! calculate derived climate variables
@@ -426,18 +439,18 @@ do i = 1,cnt(1)
   wetf  = wet(i,:) / nd
 
   !--- Checking bad data (Leo)
-
-  do k = 1,cntt
-
-    if(mtmin(k) < -273.15) then
-
-      write(0,*) 'Messed up min temp. at time slice', k, 'with', mtmin(k), 'degC'
-      write(0,*) 'tmp: ', tmp(i,k) !, 'dtr: ', dtr(i,j,k)
-      write(0,*) 'cnti:', i, 'cntt:', k
-
-    end if
-
-  end do
+  !
+  ! do k = 1,cntt
+  !
+  !   if(mtmin(k) < -273.15) then
+  !
+  !     write(0,*) 'Messed up min temp. at time slice', k, 'with', mtmin(k), 'degC'
+  !     write(0,*) 'tmp: ', tmp(i,k) !, 'dtr: ', dtr(i,j,k)
+  !     write(0,*) 'cnti:', i, 'cntt:', k
+  !
+  !   end if
+  !
+  ! end do
 
   !--- Cycling bad data (Leo)
 
@@ -453,7 +466,9 @@ do i = 1,cnt(1)
 
   end do
 
-  if(baddata_check /= 0) cycle
+  if(baddata_check /= 0) then
+    cycle
+  end if
 
   !--- Ressign abs_min vector for minval function after monthloop (Leo)
   abs_tmin(i) = 9999.
@@ -504,8 +519,6 @@ do i = 1,cnt(1)
       d0 = sum(ndbuf(-w:-1)) + 1
       d1 = d0 + ndbuf(0) - 1
 
-      !print *, d0, d1
-
       ndm = d1 - d0 + 1
 
       ! restrict simulated total monthly precip to +/-10% or 1 mm of observed value
@@ -528,8 +541,6 @@ do i = 1,cnt(1)
 
         dayloop : do d = d0,d1  ! day loop
 
-          !write(*,*)yr,m,d0, d,d1,ndbuf
-
           met_in%prec  = pre(i,t)
           met_in%wetd  = wet(i,t)
           met_in%wetf  = wetf(t)
@@ -541,8 +552,6 @@ do i = 1,cnt(1)
           met_in%resid = met_out%resid
 
           call weathergen(met_in,met_out)
-
-          ! write(0,*) met_out%cldf ! in fractional form 0 to 1
 
           met_in%rndst = met_out%rndst
           month_met(outd) = met_out    ! save this day into a month holder
@@ -736,7 +745,7 @@ elsewhere
   outvar = -32768
 end where
 
-ncstat = nf90_put_var(ofid,varid,outvar,start=srt,count=cnt)
+ncstat = nf90_put_var(ofid,varid,outvar,start=[srt(1)],count=[cnt(1)])
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 !---
@@ -750,7 +759,7 @@ elsewhere
   outvar = -32768
 end where
 
-ncstat = nf90_put_var(ofid,varid,outvar,start=srt,count=cnt)
+ncstat = nf90_put_var(ofid,varid,outvar,start=[srt(1)],count=[cnt(1)])
 if (ncstat /= nf90_noerr) call netcdf_err(ncstat)
 
 !---------------------------------------------------------------------

@@ -20,8 +20,8 @@ public  :: ran_seed
 public  :: ranur
 public  :: ran_normal
 public  :: ran_gamma
+public  :: ranu
 
-private :: ranu
 private :: refill
 
 !----------------

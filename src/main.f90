@@ -46,9 +46,6 @@ integer(i1), allocatable, dimension(:) :: ob
 
 integer(i4), dimension(2) :: job
 
-! real :: start_time
-! real :: end_time
-
 !--------------------
 
 call MPI_INIT(ierr)
@@ -110,7 +107,7 @@ end if
 
 job = [srt(rank+1), cnt(rank+1)]
 
-write(0,*) 'Rank', rank, 'recieved srt and cnt: ', job
+write(0,*) 'Rank', rank, 'recieved cell srt and cnt: ', job
 
 !--------------------
 
